@@ -82,9 +82,10 @@ module Gifenc
     #   should be used as the transparent color. The transparent color maintains
     #   whatever color was present in that pixel before rendering this image.
     # @param transparency [Boolean] Whether a transparent color is supplied.
-    #   If unset, it will be set to true or false automatically depending on
-    #   whether or not a transparent color is supplied, although this can be
-    #   overriden by setting this field to whatever is desired.
+    #   Normally you **don't** want to set this argument manually, as it will be
+    #   set to `true` or `false` automatically depending on whether or not a
+    #   transparent color has been supplied. This argument is used to manually
+    #   override the value of this field.
     # @param user_input [Boolean] Whether or not user input is expected to
     #   continue rendering the subsequent GIF images (mostly deprecated flag).
     # @return [GraphicControlExtension] The newly created Graphic Control

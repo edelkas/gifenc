@@ -32,7 +32,7 @@ module Gifenc
       @fps   = fps
   
       # Main GIF elements
-      @frames     = []
+      @images     = []
       @extensions = []
   
       # If we want the GIF to loop, then add the Netscape Extension
@@ -68,7 +68,7 @@ module Gifenc
       @extensions.each{ |e| e.encode(stream) }
 
       # Encode frames containing image data (and local extensions)
-      @frames.each{ |f| f.encode(stream) }
+      @images.each{ |f| f.encode(stream) }
 
       # Trailer
       stream << TRAILER

@@ -26,7 +26,7 @@ module Gifenc
       BLOCK_TERMINATOR
     end
 
-    # Recover original data from inside the 256-byte blocks used by GIF
+    # Recover original data from inside the 256-byte blocks used by GIF.
     # @param data [String] Data in blocks to read.
     # @return [String] Original raw data.
     def deblockify(data)
