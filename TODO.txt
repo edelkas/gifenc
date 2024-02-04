@@ -1,0 +1,1 @@
+- Test if the disposal flag does something (what happens when we choose different values in an animation?).

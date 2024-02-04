@@ -5,7 +5,8 @@ module Gifenc
   # Represents a single image. A GIF may contain multiple images, and they need
   # not be animation frames (they could simply be tiles of a static image).
   # Crucially, images can be smaller than the GIF logical screen (canvas), thus
-  # being placed at an offset of it, saving space and time.
+  # being placed at an offset of it, saving space and time, and allowing for more
+  # complex compositions.
   class Image
 
     # Create a new image or frame,
@@ -15,7 +16,7 @@ module Gifenc
     # @param y [Integer] Vertical offset of the image in the logical screen
     # @param delay [Integer] Time, in 1/100ths of a second, to wait before displaying the next image.
     # @param trans_color [Integer] Index of color to use as transparent color.
-    def initialize(width, height, x, y, delay: nil, trans_color: nil)
+    def initialize(width, height, x = 0, y = 0, delay: nil, trans_color: nil)
       # Basic characteristics
       @width  = width
       @height = height
