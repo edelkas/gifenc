@@ -1,1 +1,23 @@
-- Test if the disposal flag does something (what happens when we choose different values in an animation?).
+- Test if the disposal flag does something (what happens when we choose different
+  values in an animation?).
+- Allow to work in 2 modes: palette mode and canvas mode. Palette mode you work
+  with the color indices directly (with helpers), and canvas mode you work with
+  the colors and then eventually the palette needs to be created based on those
+  colors (either by finding the best possible palette, or by fitting the image
+  in whatever palette was specified, perhaps with a given tolerance).
+- When modifying the color table, we should probably have a flag that enables a
+  trigger to update the canvas with the new color indices, to maintain the image,
+  if that's what's desired (we may've changed the palette deliberately to
+  change the theme of the GIF of swap colors, for instance)
+- Perhaps make the @colors in the ColorTable attr_accessor, in which case we
+  should always use find_slot for @index since the user might've changed it.
+- Consider modelling the color table with a hash where the keys are the indices,
+  not the colors themselves. This allows for easier manipulation, duplicate
+  colors, etc. But, for performance, perhaps keep an inverted hash copy, which we
+  update every time we modify the palette, or whenever we call a certain "update"
+  method. In fact, let the user choose between these 2 policies. Moreover, have
+  a member of the ColorTable class, "auto_update", that is true by default, that
+  updates this inverted hash after every modification.
+- Methods to modify the palette: darken, lighten (in fact, interpolate with respect
+  to any color), etc.
+- "invert" will probably fail if inverting a color yields a preexisting color.
