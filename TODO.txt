@@ -22,3 +22,5 @@
   to any color), etc.
 - "invert" will probably fail if inverting a color yields a preexisting color.
 - Implement interlacing
+- Drawing: General lines (diagonal, width > 1, anchor points...)
+- In the bound checks for line/rect we're not taking the width into consideration

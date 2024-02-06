@@ -70,5 +70,106 @@ module Gifenc
       lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits)
       stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
     end
+
+    # Get the value (color _index_) of a pixel **fast** (i.e. without bound
+    # checks). For the safe version, see {#get}.
+    # @param x [Integer] The X coordinate of the pixel.
+    # @param y [Integer] The Y coordinate of the pixel.
+    # @return [Integer] The color index of the pixel.
+    def [](x, y)
+      @pixels[x * width + y]
+    end
+
+    # Set the value (color _index_) of a pixel **fast** (i.e. without bound
+    # checks). For the safe version, see {#set}.
+    # @param x [Integer] The X coordinate of the pixel.
+    # @param y [Integer] The Y coordinate of the pixel.
+    # @param color [Integer] The new color index of the pixel.
+    # @return [Integer] The new color index of the pixel.
+    def []=(x, y, color)
+      @pixels[x * width + y] = color & 0xFF
+    end
+
+    # Get the value (color _index_) of a pixel **safely** (i.e. with bound
+    # checks). For the fast version, see {#[]}.
+    # @param (see #[])
+    # @return (see #[])
+    def get(x, y)
+      check_bounds(x, y)
+      @pixels[x * width + y]
+    end
+
+    # Set the value (color _index_) of a pixel **safely** (i.e. with bound
+    # checks). For the fast version, see {#[]=}.
+    # @param (see #[]=)
+    # @return (see #[]=)
+    def set(x, y, color)
+      check_bounds(x, y)
+      @pixels[x * width + y] = color & 0xFF
+    end
+
+    # Draw a straight line connecting 2 points.
+    # @param x0     [Integer] X coordinate of first point.
+    # @param y0     [Integer] Y coordinate of first point.
+    # @param x1     [Integer] X coordinate of second point.
+    # @param y1     [Integer] Y coordinate of second point.
+    # @param color  [Integer] Index of the color of the line.
+    # @param width  [Integer] Width of the line in pixels.
+    # @param anchor [Symbol]  For lines with `width > 1`, specifies what part of
+    #   the line the coordinate are referencing (top, bottom, center...).
+    def line(x0, y0, x1, y1, color, width: 1, anchor: :c)
+      check_bounds(x0, y0)
+      check_bounds(x1, y1)
+
+      if x0 == x1    # Vertical
+        y0, y1 = y1, y0 if y0 > y1
+        for y in (y0 .. y1)
+          @pixels[y * width + x0] = color
+        end
+      elsif y0 == y1 # Horizontal
+        x0, x1 = x1, x0 if x0 > x1
+        for x in (x0 .. x1)
+          @pixels[y0 * width + x] = color
+        end
+      end
+    end
+
+    # Draw a rectangle with border and optional fill.
+    # @param x      [Integer] X coordinate of the top-left vertex.
+    # @param y      [Integer] Y coordinate of the top-left vertex.
+    # @param w      [Integer] Width of the rectangle in pixels.
+    # @param h      [Integer] Height of the rectangle in pixels.
+    # @param stroke [Integer] Index of the border color.
+    # @param fill   [Integer] Index of the fill color (`nil` for no fill).
+    # @param width  [Integer] Stroke width of the border in pixels.
+    def rect(x, y, w, h, stroke, fill = nil, width: 1)
+      # Check coordinates
+      x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
+      check_bounds(x0, y0)
+      check_bounds(x1, y1)
+
+      # Fill rectangle, if provided
+      if fill
+        for x in (x0 .. x1)
+          for y in (y0 .. y1)
+            @pixels[y * width + x] = fill
+          end
+        end
+      end
+
+      # Rectangle border
+      line(x0, y0, x1, y0, stroke, width: width)
+      line(x0, y1, x1, y1, stroke, width: width)
+      line(x0, y0, x0, y1, stroke, width: width)
+      line(x1, y0, x1, y1, stroke, width: width)
+    end
+
+    private
+
+    def check_bounds(x, y)
+      if !x.between?(0, @width) || !y.between?(0, @height)
+        raise CanvasError, "Out of bounds: Pixel (#{x}, #{y}) doesn't exist."
+      end
+    end
   end
 end
