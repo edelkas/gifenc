@@ -1,3 +1,1 @@
-lib/**/*.rb -m markdown
--
-docs/**/*
+lib/**/*.rb -m markdown --no-private - docs/**/*

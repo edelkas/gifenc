@@ -21,3 +21,4 @@
 - Methods to modify the palette: darken, lighten (in fact, interpolate with respect
   to any color), etc.
 - "invert" will probably fail if inverting a color yields a preexisting color.
+- Implement interlacing

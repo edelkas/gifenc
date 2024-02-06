@@ -21,10 +21,6 @@ module Gifenc
     # @param colors [Array<Integer>] An ordered list of colors to initialize the
     #   table with. Colors can be duplicated, but regardless, the list should be
     #   at most 256 colors long. It can be empty, and colors be added later.
-    # @param depth [Integer] Specifies the bit depth (1-8) for each color
-    #   component. Note that this doesn't add any compression, since each table
-    #   entry still takes up 3 bytes in the GIF, and each pixel 1 byte (the
-    #   index to the table).
     # @param unique [Boolean] Eliminates duplicate colors in the supplied list
     #   _before_ building the table. Beware that this will, naturally, change
     #   the color indices, so if this is unacceptable (perhaps because an image
@@ -36,12 +32,41 @@ module Gifenc
     #   2 and 256 colors. **Note**: The encoder will always choose the smallest
     #   size possible that fits all colors, only change this setting if you want
     #   to _force_ it to not surpass a certain size below the hard limit of 256.
+    # @param depth [Integer] Specifies the bit depth (1-8) for each color
+    #   component _in the original image_. This does **not** set the actual GIF's
+    #   color depth (that is always 8), and is ignored by most decoders anyway,
+    #   so this field was almost never useful.
+    # @param sorted [Boolean] Indicates that the colors in the table are sorted
+    #   by importance. It's essentially a deprecated flag that most decoders ignore.
     # @return [ColorTable] The newly created Color Table.
-    def initialize(colors = [], depth = 8, unique = false, max_size = 8)
+    def initialize(colors = [], unique = false, max_size: 8, depth: 8, sorted: false)
       @colors = {}
-      @depth = depth & 8
+      @depth = depth.clamp(1, 8)
+      @sorted = sorted
       resize(max_size)
       set(colors, unique)
+    end
+
+    # Encode the color table as it will appear in the GIF.
+    # @param stream [IO] The stream to output the encoded color table into.
+    def encode(stream)
+      inv_colors = @colors.invert
+      for i in (0 ... 2 ** real_size) do
+        c = inv_colors[i] || 0
+        stream << [c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF].pack('C3')
+      end
+    end
+
+    # Pack GCT flags into a byte as they appear in the GIF.
+    # @private
+    def global_flags
+      (1 << 7 | (@depth - 1 & 0b111) << 4 | (@sorted ? 1 : 0) << 3 | (real_size - 1 & 0b111)) & 0xFF
+    end
+
+    # Pack LCT flags into a byte as they appear in the GIF.
+    # @private
+    def local_flags
+      (1 << 7 | (@sorted ? 1 : 0) << 5 | (real_size - 1 & 0b111)) & 0xFF
     end
 
     # Change all colors in this table with a different list of colors.
@@ -182,6 +207,12 @@ module Gifenc
     # Inverts all the colors in the table.
     def invert
       @colors.each{ |c| replace(c, c ^ 0xFFFFFF) }
+    end
+
+    # Find the actual bit size of the color table
+    # @private
+    def real_size
+      [Math.log2(@colors.values.max + 1).ceil, 1].max
     end
 
     private

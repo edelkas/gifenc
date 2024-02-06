@@ -3,37 +3,51 @@ require_relative 'extensions.rb'
 
 module Gifenc
 
-  # Represents a GIF file, possibly composed of multiple images / frames.
+  # Represents a GIF file, possibly composed of multiple images. Note that each
+  # image in a GIF file is not necessarily an animation frame, they could also be
+  # still images that should be layered on top of each other.
   class Gif
     # Creates a new GIF object.
-    # @param width  [Integer] Width of the logical screen in pixels.
-    # @param height [Integer] Height of the logical screen in pixels.
-    # @param bg     [Integer] Index of background color in the Global Color Table.
-    # @param loops  [Integer] Amount of times to loop the GIF (-1 = infinite).
+    # @param width  [Integer] Width of the logical screen (canvas) in pixels.
+    # @param height [Integer] Height of the logical screen (canvas) in pixels.
+    # @param gct    [GlobalColorTable] The global color table of the GIF. This
+    #   represents the default palette of all the images in the GIF, and contains
+    #   the colors that can be used in them (at most 256). Each image can
+    #   override this with a local color table. See {ColorTable} for more details
+    #   and a list of default palettes.
+    # @param loops  [Integer] Amount of times (0-65535) to loop the GIF.
+    #   (`-1` = loop indefinitely).
     # @param delay  [Integer] Default delay between frames, in 1/100ths of a second.
-    # @param fps    [Integer] Frames per second, will only be used to approximate the real delay if no explicit delay was given.
-    def initialize(width, height, bg: 0, loops: -1, delay: nil, fps: 10)
-      # Main GIF params
+    #   This setting can be overridden for each individual frame, thus obtaining
+    #   a variable framerate.
+    # @param fps    [Integer] Frames per second of the GIF. This setting will
+    #   only be used to approximate the real delay if **no** explicit delay was
+    #   given.
+    # @param bg     [Integer] Index of the background color in the Global Color
+    #   Table. This should be the color of the parts of the canvas not covered
+    #   by any image. **Note**: This field is ignored by most decoders, which
+    #   instead render the background transparent.
+    # @param ar     [Integer] Aspect ratio of the pixels. If provided (`ar > 0`),
+    #   the aspect ratio is calculated as (ar + 15) / 64, which allows for ratios
+    #   roughly between 1:4 and 4:1 in increments of 1/64th. `0` means square
+    #   pixels. **Note**: This field is ignored by most decoders, which instead
+    #   just render all pixels square.
+    def initialize(width, height, gct: nil, loops: -1, delay: nil, fps: 10, bg: 0, ar: 0)
+      # GIF attributes
       @width  = width
       @height = height
       @bg     = bg
-      @ar     = 0      # Pixel aspect ratio (unused -> square)
-      @depth  = 8      # Color depth per channel in bits
+      @ar     = ar
+      @gct    = gct
   
-      # Global Color Table and flags
-      @gct_flag  = true  # Global color table present
-      @gct_sort  = false # Colors in GCT not ordered by importance
-      @gct_size  = 0     # Number of colors in GCT (0 - 256, power of 2)
-      @gct = []
-  
+      # GIF content data
+      @images     = []
+      @extensions = []
+
       # Extension params
       @loops = loops
       @delay = delay
       @fps   = fps
-  
-      # Main GIF elements
-      @images     = []
-      @extensions = []
   
       # If we want the GIF to loop, then add the Netscape Extension
       if @loops != 0
@@ -44,25 +58,17 @@ module Gifenc
 
     # Encode all the data as a GIF file and write it to a stream.
     # @param stream [IO] Stream to write the data to.
-    def encode(stream, delay: 4)
+    def encode(stream)
       # Header
       stream << HEADER
 
       # Logical Screen Descriptor
       stream << [@width, @height].pack('S<2')
-      size = @gct_size < 2 ? 0 : Math.log2(@gct_size - 1).to_i
-      stream << [
-        (@gct_flag.to_i & 0b1  ) << 7 |
-        (@gct_depth - 1 & 0b111) << 4 |
-        (@gct_sort.to_i & 0b1  ) << 3 |
-        (size           & 0b111)
-      ].pack('C')
+      stream << [@color_table.global_flags].pack('C') if @color_table
       stream << [@bg, @ar].pack('C2')
 
       # Global Color Table
-      @gct.each{ |c|
-        stream << [c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF].pack('C3')
-      } if @gct_flag
+      @color_table.encode(stream) if @color_table
 
       # Global extensions
       @extensions.each{ |e| e.encode(stream) }

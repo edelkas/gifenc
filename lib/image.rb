@@ -9,46 +9,43 @@ module Gifenc
   # complex compositions.
   class Image
 
-    # Create a new image or frame,
-    # @param width [Integer] Width of the image in pixels
-    # @param height [Integer] Height of the image in pixels
-    # @param x [Integer] Horizontal offset of the image in the logical screen
-    # @param y [Integer] Vertical offset of the image in the logical screen
+    # Contains the table based image data (the color indexes for each pixel).
+    attr_accessor :pixels
+
+    # Create a new image or frame.
+    # @param width [Integer] Width of the image in pixels.
+    # @param height [Integer] Height of the image in pixels.
+    # @param x [Integer] Horizontal offset of the image in the logical screen.
+    # @param y [Integer] Vertical offset of the image in the logical screen.
+    # @param color [Integer] The initial color of the canvas.
     # @param delay [Integer] Time, in 1/100ths of a second, to wait before displaying the next image.
     # @param trans_color [Integer] Index of color to use as transparent color.
-    def initialize(width, height, x = 0, y = 0, delay: nil, trans_color: nil)
-      # Basic characteristics
-      @width  = width
-      @height = height
-      @x      = x
-      @y      = y
+    # @param interlace [Boolean] Whether the pixel data of this image is interlaced or not.
+    # @param lct [ColorTable] Add a Local Color Table to this image, overriding the global one.
+    def initialize(width, height, x = 0, y = 0, color: 0, delay: nil, trans_color: nil, interlace: false, lct: nil)
+      # Image attributes
+      @width     = width
+      @height    = height
+      @x         = x
+      @y         = y
+      @lct       = lct
+      @interlace = interlace
 
-      # Local Color Table and flags
-      @lct_flag  = false # Local color table not present
-      @lct_sort  = false # Colors in LCT not ordered by importance
-      @lct_size  = 0     # Number of colors in LCT (0 - 256, power of 2)
-      @lct       = []
-
-      @interlace = false # No interlacing
-      @pixels = []
+      # Image data
+      @pixels    = [color] * (width * height)
 
       # Extended features
-      @delay = delay             # Delay between this frame and the next (in 1/100ths of sec)
-      @trans_color = trans_color # Transparent color (keeps pixel from previous frame)
-      @extensions = []           # Extensions local to this image
+      @delay       = delay
+      @trans_color = trans_color
+      @extensions  = []
 
       if !@delay.nil? || !@trans_color.nil?
         @extensions << GraphicControlExtension.new(
-          @delay,
+          delay:        @delay,
           transparency: !@trans_color.nil?,
-          trans_color: @trans_color
+          trans_color:  @trans_color
         )
       end
-    end
-
-    # Set the values of the pixels
-    def set(pixels)
-
     end
 
     # Encode the image data to GIF format and write it to a stream.
@@ -60,22 +57,18 @@ module Gifenc
       # Image descriptor
       stream << ','
       stream << [@x, @y, @width, @height].pack('S<4')
-      size = @lct_size < 2 ? 0 : Math.log2(@lct_size - 1).to_i
-      stream << [
-        (@lct_flag.to_i & 0b1  ) << 7 |
-        (@interlace     & 0b1  ) << 6 |
-        (@lct_sort      & 0b1  ) << 5 |
-        (0              & 0b11 ) << 3 |
-        (size           & 0b111)
-      ].pack('C')
+      flags = (@interlace ? 1 : 0) << 6
+      flags |= @lct.local_flags if @lct
+      stream << [flags].pack('C')
 
       # Local Color Table
-      @lct.each{ |c|
-        stream << [c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF].pack('C3')
-      } if @lct_flag
+      @lct.encode(stream) if @lct
 
       # LZW-compressed image data
-      # TODO: Add data here
+      min_bits = @lct ? @lct.real_size : 8
+      stream << min_bits.chr
+      lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits)
+      stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
     end
   end
 end

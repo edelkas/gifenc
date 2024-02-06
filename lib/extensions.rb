@@ -92,7 +92,7 @@ module Gifenc
     #   Extension block.
     def initialize(
         delay:        10,
-        disposal:     DISPOSAL_NONE,
+        disposal:     DISPOSAL_NO,
         trans_color:  nil,
         transparency: nil,
         user_input:   false
