@@ -24,3 +24,4 @@
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)
 - In the bound checks for line/rect we're not taking the width into consideration
+- Enforce that we either have a GCT or every frame has an LCT

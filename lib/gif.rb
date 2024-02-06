@@ -19,7 +19,8 @@ module Gifenc
     #   (`-1` = loop indefinitely).
     # @param delay  [Integer] Default delay between frames, in 1/100ths of a second.
     #   This setting can be overridden for each individual frame, thus obtaining
-    #   a variable framerate.
+    #   a variable framerate. Beware that most programs do not support the
+    #   smallest delays (e.g. <5).
     # @param fps    [Integer] Frames per second of the GIF. This setting will
     #   only be used to approximate the real delay if **no** explicit delay was
     #   given.

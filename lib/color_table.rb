@@ -3,17 +3,16 @@ module Gifenc
   # may appear in any of its images. The color table can be *global* (GCT), in
   # which case it applies to all images, and *local* (LCT), in which case it
   # applies only to the subsequent image, overriding the global one, if present.
-  # Technically, both are optional according to the standard, but we always
-  # include a GCT, since otherwise it's up to software to choose how to render
-  # the colors.
+  # Technically, both are optional according to the standard, but we enforce
+  # having an LCT if no GCT is present, since otherwise it's up to the decoder to
+  # choose how to render the colors.
   #
   # A color table can have a size of at most 8 bits, i.e., at most 256 colors,
   # and it's always a power of 2, even if there's leftover space or empty slots.
-  # The color depth / resolution may be at most 8 bits per R/G/B channel.
+  # The color of each pixel in the image is then determined by specifying its
+  # index in the corresponding color table (local, if present, or global).
   # Regardless of the bit depth, each color component still takes up a byte (and
   # each pixel thus 3 bytes) in the encoded GIF file.
-  # The color of each pixel in the image is then determined by specifying its
-  # index in the corresponding color table.
   class ColorTable
 
     # Creates a new color table. This color table can then be used as a GCT,
