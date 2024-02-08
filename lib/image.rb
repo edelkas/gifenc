@@ -183,6 +183,7 @@ module Gifenc
     # @param anchor [Symbol]  For lines with `width > 1`, specifies what part of
     #   the line the coordinates are referencing (top, bottom, center...).
     # @return       [Image]   The image.
+    # @todo Add support for arbitrary lines, widths, and even basic anti-aliasing.
     def line(x0, y0, x1, y1, color, width: 1, anchor: :c)
       check_bounds(x0, y0)
       check_bounds(x1, y1)

@@ -10,7 +10,7 @@ module Gifenc
     # Creates a new GIF object.
     # @param width  [Integer] Width of the logical screen (canvas) in pixels.
     # @param height [Integer] Height of the logical screen (canvas) in pixels.
-    # @param gct    [GlobalColorTable] The global color table of the GIF. This
+    # @param gct    [ColorTable] The global color table of the GIF. This
     #   represents the default palette of all the images in the GIF, and contains
     #   the colors that can be used in them (at most 256). Each image can
     #   override this with a local color table. See {ColorTable} for more details
@@ -93,11 +93,11 @@ module Gifenc
 
       # Logical Screen Descriptor
       stream << [@width, @height].pack('S<2')
-      stream << [@color_table.global_flags].pack('C') if @color_table
+      stream << [@gct.global_flags].pack('C') if @gct
       stream << [@bg, @ar].pack('C2')
 
       # Global Color Table
-      @color_table.encode(stream) if @color_table
+      @gct.encode(stream) if @gct
 
       # Global extensions
       @extensions.each{ |e| e.encode(stream) }

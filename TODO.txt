@@ -9,19 +9,17 @@
   trigger to update the canvas with the new color indices, to maintain the image,
   if that's what's desired (we may've changed the palette deliberately to
   change the theme of the GIF of swap colors, for instance)
-- Perhaps make the @colors in the ColorTable attr_accessor, in which case we
-  should always use find_slot for @index since the user might've changed it.
-- Consider modelling the color table with a hash where the keys are the indices,
-  not the colors themselves. This allows for easier manipulation, duplicate
-  colors, etc. But, for performance, perhaps keep an inverted hash copy, which we
-  update every time we modify the palette, or whenever we call a certain "update"
-  method. In fact, let the user choose between these 2 policies. Moreover, have
-  a member of the ColorTable class, "auto_update", that is true by default, that
-  updates this inverted hash after every modification.
+- Add a hash map for the colors of a color table, for the sake of performance,
+  which we update every time we modify the palette, or whenever we call a certain
+  "update" method. In fact, let the user choose between these 2 policies. Moreover,
+  have a member of the ColorTable class, "auto_update", that is true by default,
+  that updates this inverted hash after every modification.
 - Methods to modify the palette: darken, lighten (in fact, interpolate with respect
   to any color), grayscale, quantization, color shifting, etc.
-- "invert" will probably fail if inverting a color yields a preexisting color.
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT
+- Add attributes (attr_accessor...) to many classes (e.g. Gif, Image...)
+- Add more tags to the documentation (e.g. @raise, @todo...)
+- Should we send indices or colors to Image.get, Image.set, Image.[], Image.[]= ???
