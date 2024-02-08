@@ -176,8 +176,8 @@ module Gifenc
       @code = code # Application Authentication Code
     end
 
-    # Encode the extension block as a binary string (id + code + data), as it will appear in the
-    # actual GIF file.
+    # Encode the extension block as a binary string (id + code + data), as it
+    # will appear in the actual GIF file.
     # @return [String] The encoded extension block.
     def body
       # Sanitize fields

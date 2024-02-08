@@ -7,6 +7,9 @@ module Gifenc
   # Crucially, images can be smaller than the GIF logical screen (canvas), thus
   # being placed at an offset of it, saving space and time, and allowing for more
   # complex compositions.
+  #
+  # Most methods modifying the image return the image itself, so that they can
+  # be chained properly.
   class Image
 
     # Contains the table based image data (the color indexes for each pixel).
@@ -106,51 +109,68 @@ module Gifenc
         trans_color: @trans_color, interlace: @interlace, lct: lct
       )
       @extensions.each{ |e| image.extend(e.dup, quiet: true) }
+      image
     end
 
     # Move the image to a different origin of coordinates.
     # @param x [Integer] New origin horizontal coordinate.
     # @param y [Integer] New origin vertical coordinate.
+    # @return [Image] The image.
     def move(x, y)
       @x = x
       @y = y
+      self
     end
 
-    # Get the value (color _index_) of a pixel **fast** (i.e. without bound
-    # checks). For the safe version, see {#get}.
+    # Get the value (color _index_) of a pixel fast (i.e. without bound checks).
+    # See also {#get}.
     # @param x [Integer] The X coordinate of the pixel.
     # @param y [Integer] The Y coordinate of the pixel.
     # @return [Integer] The color index of the pixel.
     def [](x, y)
-      @pixels[x * width + y]
+      @pixels[y * width + x]
     end
 
-    # Set the value (color _index_) of a pixel **fast** (i.e. without bound
-    # checks). For the safe version, see {#set}.
+    # Set the value (color _index_) of a pixel fast (i.e. without bound checks).
+    # See also {#set}.
     # @param x [Integer] The X coordinate of the pixel.
     # @param y [Integer] The Y coordinate of the pixel.
     # @param color [Integer] The new color index of the pixel.
     # @return [Integer] The new color index of the pixel.
     def []=(x, y, color)
-      @pixels[x * width + y] = color & 0xFF
+      @pixels[y * width + x] = color & 0xFF
     end
 
-    # Get the value (color _index_) of a pixel **safely** (i.e. with bound
+    # Get the values (color _index_) of a list of pixels safely (i.e. with bound
     # checks). For the fast version, see {#[]}.
-    # @param (see #[])
-    # @return (see #[])
-    def get(x, y)
-      check_bounds(x, y)
-      @pixels[x * width + y]
+    # @param points [Array<Array<Integer>>] The list of points whose color should
+    #   be retrieved. Must be an array of pairs of coordinates.
+    # @return [Array<Integer>] The list of colors, in the same order.
+    def get(points)
+      check_bounds(points.min_by(&:first)[0], points.min_by(&:last)[1])
+      check_bounds(points.max_by(&:first)[0], points.max_by(&:last)[1])
+      points.map{ |p|
+        @pixels[p[1] * width + p[0]]
+      }
     end
 
-    # Set the value (color _index_) of a pixel **safely** (i.e. with bound
+    # Set the values (color _index_) of a list of pixels safely (i.e. with bound
     # checks). For the fast version, see {#[]=}.
-    # @param (see #[]=)
-    # @return (see #[]=)
-    def set(x, y, color)
-      check_bounds(x, y)
-      @pixels[x * width + y] = color & 0xFF
+    # @param points [Array<Array<Integer>>] The list of points whose color to
+    #   change. Must be an array of pairs of coordinates.
+    # @param colors [Integer, Array<Integer>] The color(s) to assign. If an
+    #   integer is passed, then all pixels will be set to the same color.
+    #   Alternatively, an array with the same length as the points list must be
+    #   passed, and each point will be set to the respective color in the list.
+    # @return [Image] The image.
+    def set(points, colors)
+      check_bounds(points.min_by(&:first)[0], points.min_by(&:last)[1])
+      check_bounds(points.max_by(&:first)[0], points.max_by(&:last)[1])
+      single = colors.is_a?(Integer)
+      points.each_with_index{ |p, i|
+        @pixels[p[1] * width + p[0]] = single ? color & 0xFF : colors[i] & 0xFF
+      }
+      self
     end
 
     # Draw a straight line connecting 2 points.
@@ -162,6 +182,7 @@ module Gifenc
     # @param width  [Integer] Width of the line in pixels.
     # @param anchor [Symbol]  For lines with `width > 1`, specifies what part of
     #   the line the coordinates are referencing (top, bottom, center...).
+    # @return       [Image]   The image.
     def line(x0, y0, x1, y1, color, width: 1, anchor: :c)
       check_bounds(x0, y0)
       check_bounds(x1, y1)
@@ -177,6 +198,8 @@ module Gifenc
           @pixels[y0 * width + x] = color
         end
       end
+
+      self
     end
 
     # Draw a rectangle with border and optional fill.
@@ -187,6 +210,7 @@ module Gifenc
     # @param stroke [Integer] Index of the border color.
     # @param fill   [Integer] Index of the fill color (`nil` for no fill).
     # @param width  [Integer] Stroke width of the border in pixels.
+    # @return [Image] The image.
     def rect(x, y, w, h, stroke, fill = nil, width: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
@@ -207,6 +231,8 @@ module Gifenc
       line(x0, y1, x1, y1, stroke, width: width)
       line(x0, y0, x0, y1, stroke, width: width)
       line(x1, y0, x1, y1, stroke, width: width)
+
+      self
     end
 
     private
