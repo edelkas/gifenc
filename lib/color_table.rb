@@ -56,6 +56,14 @@ module Gifenc
       end
     end
 
+    # Create a duplicate copy of this color table.
+    # @return [ColorTable] The new color table.
+    def dup
+      ColorTable.new(
+        @colors.dup, false, max_size: @max_size, depth: @depth, sorted: @sorted
+      )
+    end
+
     # Pack GCT flags into a byte as they appear in the GIF.
     # @private
     def global_flags

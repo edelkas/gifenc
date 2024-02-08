@@ -10,5 +10,15 @@ module Gifenc
     # such as trying to change an out of bounds pixel.
     class CanvasError < Exception
     end
+
+    # Raised when a generic error happens at the highest level, such as building
+    # a GIF file with an incorrect structure.
+    class GifError < Exception
+    end
+
+    # Raised when an illegal operation regarding GIF extensions is performed,
+    # such as trying to append 2 Graphic Control Extensions to the same image.
+    class ExtensionError < Exception
+    end
   end
 end

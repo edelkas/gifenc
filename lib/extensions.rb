@@ -99,14 +99,11 @@ module Gifenc
       )
       super(LABEL)
 
-      # Packed flags
       @disposal     = (0...8).include?(disposal) ? disposal : DISPOSAL_NONE
       @user_input   = user_input
       @transparency = !transparency.nil? ? transparency : !trans_color.nil?
-
-      # Actually useful params
-      @delay       = delay & 0xFFFF
-      @trans_color = (trans_color || 0x00) & 0xFF
+      @delay        = delay & 0xFFFF
+      @trans_color  = (trans_color || 0x00) & 0xFF
     end
 
     # Encode the extension block as a 6-byte binary string, as it will appear
@@ -129,6 +126,18 @@ module Gifenc
       str += BLOCK_TERMINATOR
 
       str
+    end
+
+    # Create a duplicate copy of this graphic control extension.
+    # @return [GraphicControlExtension] The new extension object.
+    def dup
+      GraphicControlExtension.new(
+        delay:        @delay,
+        disposal:     @disposal,
+        trans_color:  @trans_color,
+        transparency: @transparency,
+        user_input:   @user_input
+      )
     end
   end
 
@@ -192,11 +201,11 @@ module Gifenc
   class NetscapeExtension < ApplicationExtension
 
     # Create a new Netscape Extension block.
-    # @param loops [Integer] Times to loop the GIF (0 = infinite).
+    # @param loops [Integer] Times (0-65535) to loop the GIF (`0` = infinite).
     # @return [NetscapeExtension] The newly created Netscape Extension block.
     def initialize(loops = 0)
       super('NETSCAPE', '2.0')
-      @loops = loops & 0xFFFF # Amount of loops (0 = infinite)
+      @loops = loops.clamp(0, 2 ** 16 - 1)
     end
 
     # Data of the actual extension as a 3-byte binary string.
@@ -204,7 +213,13 @@ module Gifenc
     def data
       # Note: We do not add the block size or null terminator here, since it will
       # be blockified later.
-      "\x01" + [@loops].pack('S<')
+      "\x01" + [@loops & 0xFFFF].pack('S<')
+    end
+
+    # Create a duplicate copy of this Netscape extension.
+    # @return [NetscapeExtension] The new extension object.
+    def dup
+      NetscapeExtension.new(@loops)
     end
   end
 end

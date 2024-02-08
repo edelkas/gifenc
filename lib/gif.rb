@@ -40,7 +40,7 @@ module Gifenc
       @bg     = bg
       @ar     = ar
       @gct    = gct
-  
+
       # GIF content data
       @images     = []
       @extensions = []
@@ -49,12 +49,40 @@ module Gifenc
       @loops = loops
       @delay = delay
       @fps   = fps
-  
+
       # If we want the GIF to loop, then add the Netscape Extension
       if @loops != 0
         loops = @loops == -1 ? 0 : @loops
         @extensions << NetscapeExtension.new(loops)
       end
+    end
+
+    # Insert a _new_ or _preexisting_ image at the specified index of the image
+    # list. If the image parameter is specified, that image will be inserted
+    # into the GIF's image list, and the other parameters will be ignored. If
+    # left unspecified, then a new image will be created according to all the
+    # other parameters. The default value for these parameters are the GIF's
+    # defaults.
+    # @param i [Integer] The index to insert the image at.
+    # @param image [Image] The image to insert. Don't specify it to create a
+    #   new image with the desired parameters. The next parameters are only
+    #   relevant if a new image is created.
+    # @param width [Integer] The width of the new image in pixels.
+    # @param height [Integer] The height of the new image in pixels.
+    # @return [Image] The inserted image.
+    def insert(i, image = nil, width: @width, height: @height, x: 0, y: 0,
+      color: @bg, delay: @delay, trans_color: @bg, interlace: false, lct: nil)
+      range = (-@images.size - 1 .. @images.size)
+      raise GifError, "Cannot insert image into specified index, must be\
+        between #{range.min} and #{range.max}." if !range.cover?(i)
+
+      image = Image.new(
+        width, height, x, y, color: color, delay: delay,
+        trans_color: trans_color, interlace: interlace, lct: lct
+      ) unless image
+
+      @images.insert(i, image)
+      image
     end
 
     # Encode all the data as a GIF file and write it to a stream.

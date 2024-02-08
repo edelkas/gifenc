@@ -32,7 +32,8 @@ module Gifenc
       @interlace = interlace
 
       # Image data
-      @pixels    = [color] * (width * height)
+      @color     = color
+      @pixels    = [@color] * (width * height)
 
       # Extended features
       @delay       = delay
@@ -69,6 +70,50 @@ module Gifenc
       stream << min_bits.chr
       lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits)
       stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
+    end
+
+    # Extend the current image with the specified local extension. There are
+    # several reasons why this could fail (if the specified extension is global,
+    # or if the image already has one of a kind that must be unique).
+    # @param extension [Extension] The extension to apply to this image.
+    # @param quiet [Boolean] On failure, whether to raise an exception or just
+    #   return gracefully.
+    # @return [Boolean] Whether the extension of the image was successful or not.
+    #   If `quiet = false`, this will always be `true`, as otherwise an exception
+    #   is raised.
+    def extend(extension, quiet: false)
+      if extension.is_a?(GraphicControlExtension) &&
+        @extensions.any?{ |e| e.is_a?(GraphicControlExtension) }
+        return false if quiet
+        raise ExtensionError, "Cannot extend, image already has a Graphic\
+          Control Extension."
+      end
+      if extension.is_a?(ApplicationExtension)
+        return false if quiet
+        raise ExtensionError, "Application extensions have a global scope, they\
+          must be assigned to the whole GIF object, not individual images."
+      end
+      @extensions << extension
+      true
+    end
+
+    # Create a duplicate copy of this image.
+    # @return [Image] The new image.
+    def dup
+      lct = @lct ? @lct.dup : nil
+      image = Image.new(
+        @width, @height, @x, @y, color: @color, delay: @delay,
+        trans_color: @trans_color, interlace: @interlace, lct: lct
+      )
+      @extensions.each{ |e| image.extend(e.dup, quiet: true) }
+    end
+
+    # Move the image to a different origin of coordinates.
+    # @param x [Integer] New origin horizontal coordinate.
+    # @param y [Integer] New origin vertical coordinate.
+    def move(x, y)
+      @x = x
+      @y = y
     end
 
     # Get the value (color _index_) of a pixel **fast** (i.e. without bound
@@ -116,7 +161,7 @@ module Gifenc
     # @param color  [Integer] Index of the color of the line.
     # @param width  [Integer] Width of the line in pixels.
     # @param anchor [Symbol]  For lines with `width > 1`, specifies what part of
-    #   the line the coordinate are referencing (top, bottom, center...).
+    #   the line the coordinates are referencing (top, bottom, center...).
     def line(x0, y0, x1, y1, color, width: 1, anchor: :c)
       check_bounds(x0, y0)
       check_bounds(x1, y1)
