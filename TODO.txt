@@ -19,7 +19,7 @@
   a member of the ColorTable class, "auto_update", that is true by default, that
   updates this inverted hash after every modification.
 - Methods to modify the palette: darken, lighten (in fact, interpolate with respect
-  to any color), etc.
+  to any color), grayscale, quantization, color shifting, etc.
 - "invert" will probably fail if inverting a color yields a preexisting color.
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)

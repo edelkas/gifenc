@@ -1,3 +1,5 @@
+require 'set'
+
 module Gifenc
   # The color table is the palette of the GIF, it contains all the colors that
   # may appear in any of its images. The color table can be *global* (GCT), in
@@ -13,238 +15,292 @@ module Gifenc
   # index in the corresponding color table (local, if present, or global).
   # Regardless of the bit depth, each color component still takes up a byte (and
   # each pixel thus 3 bytes) in the encoded GIF file.
+  #
+  # This class handles all the logic dealing with color indexes (in the table)
+  # internally, so that the user can work purely with colors directly.
+  #
+  # Notes:
+  # - Many of the methods that manipulate the color table return the table back,
+  #   so that they may be chained properly.
+  # - Several methods may change the color indexes, thus potentially corrupting
+  #   images already made with this table. These methods are indicated with a note,
+  #   and should probably only be used when building the desired palette, before
+  #   actually starting to use it to craft images.
   class ColorTable
+
+    # The maximum size of a GIF color table. The encoder will always choose the
+    # smallest size possible that fits all colors, so this is only a hard limit.
+    MAX_SIZE = 256
+
+    # The color resolution, in bits per channel, of the _original_ image, NOT of
+    # the GIF. The GIF's color depth is always 8 bits per channel.
+    # @return [Integer] Original color bit depth.
+    # @note This attribute is essentially meaningless nowadays, and ignored by
+    #   most decoders.
+    attr_accessor :depth
+
+    # Whether the colors of the table are sorted in decreasing order of importance.
+    # As per the specification, this would typically be decreasing order of
+    # frequency, in order to assist older systems and decoders with fewer
+    # available colors in choosing the best subset of colors to represent the image.
+    # @return [Boolean] Whether the table colors are sorted or not.
+    # @note This attribute is essentially meaningless nowadays, and ignored by
+    #   most decoders.
+    attr_accessor :sorted
+
+    # The raw list of colors in the table. May contain `nil`s, which represents
+    # empty slots in the table (since the exact indexes matter). To change the
+    # color list in bulk, use the {#set} method. To change individual colors,
+    # use the {#replace} method.
+    # @return [Array<Integer>] The raw list of colors.
+    attr_reader :colors
 
     # Creates a new color table. This color table can then be used as a GCT,
     # as an LCT for as many images as desired, or both.
     # @param colors [Array<Integer>] An ordered list of colors to initialize the
     #   table with. Colors can be duplicated, but regardless, the list should be
-    #   at most 256 colors long. It can be empty, and colors be added later.
-    # @param unique [Boolean] Eliminates duplicate colors in the supplied list
-    #   _before_ building the table. Beware that this will, naturally, change
-    #   the color indices, so if this is unacceptable (perhaps because an image
-    #   needs to be parsed with this exact palette configuration), don't do it.
-    #   If enabled, then the list may have more than 256 entries, as long as it
-    #   has fewer than 256 different entries.
-    # @param max_size [Integer] Maximum size of the color table (maximum number
-    #   of colors) in bits. This must be between 1 and 8, yielding a size between
-    #   2 and 256 colors. **Note**: The encoder will always choose the smallest
-    #   size possible that fits all colors, only change this setting if you want
-    #   to _force_ it to not surpass a certain size below the hard limit of 256.
+    #   at most 256 colors long. Since the indexes matter, the list may contain
+    #   `nil`s, which represents empty slots in the table.
     # @param depth [Integer] Specifies the bit depth (1-8) for each color
     #   component _in the original image_. This does **not** set the actual GIF's
-    #   color depth (that is always 8), and is ignored by most decoders anyway,
-    #   so this field was almost never useful.
+    #   color depth (that is always 8), and is ignored by most decoders.
     # @param sorted [Boolean] Indicates that the colors in the table are sorted
     #   by importance. It's essentially a deprecated flag that most decoders ignore.
-    # @return [ColorTable] The newly created Color Table.
-    def initialize(colors = [], unique = false, max_size: 8, depth: 8, sorted: false)
-      @colors = {}
+    # @return [ColorTable] The color table.
+    def initialize(colors = [], depth: 8, sorted: false)
+      clear
       @depth = depth.clamp(1, 8)
       @sorted = sorted
-      resize(max_size)
-      set(colors, unique)
+      set(colors)
     end
 
     # Encode the color table as it will appear in the GIF.
     # @param stream [IO] The stream to output the encoded color table into.
     def encode(stream)
-      inv_colors = @colors.invert
-      for i in (0 ... 2 ** real_size) do
-        c = inv_colors[i] || 0
+      @colors.each{ |c|
+        c = 0 if !c
         stream << [c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF].pack('C3')
-      end
+      }
     end
 
     # Create a duplicate copy of this color table.
     # @return [ColorTable] The new color table.
     def dup
-      ColorTable.new(
-        @colors.dup, false, max_size: @max_size, depth: @depth, sorted: @sorted
-      )
+      ColorTable.new(@colors.dup, depth: @depth, sorted: @sorted)
     end
 
     # Pack GCT flags into a byte as they appear in the GIF.
     # @private
     def global_flags
-      (1 << 7 | (@depth - 1 & 0b111) << 4 | (@sorted ? 1 : 0) << 3 | (real_size - 1 & 0b111)) & 0xFF
+      (1 << 7 | (@depth - 1 & 0b111) << 4 | (@sorted ? 1 : 0) << 3 | (bit_size - 1 & 0b111)) & 0xFF
     end
 
     # Pack LCT flags into a byte as they appear in the GIF.
     # @private
     def local_flags
-      (1 << 7 | (@sorted ? 1 : 0) << 5 | (real_size - 1 & 0b111)) & 0xFF
+      (1 << 7 | (@sorted ? 1 : 0) << 5 | (bit_size - 1 & 0b111)) & 0xFF
     end
 
-    # Change all colors in this table with a different list of colors.
+    # Change all colors in this table with a different list of colors. The list
+    # may contain `nil`s, indicating empty slots.
     # @param colors [Array<Integer>] The new list of colors.
-    # @param unique [Boolean] Whether to remove color duplicates.
-    def set(colors, unique = false)
-      colors.uniq! if unique
-      if colors.size > @max_size
+    # @return (see #initialize)
+    # @note This method may change color indexes.
+    def set(colors)
+      if colors.size > MAX_SIZE
         raise ColorTableError, "Cannot build color table, the supplied color list\
-          has more than #{@max_size } entries."
+          has more than #{MAX_SIZE} entries."
       end
-
-      # Keep only _first_ appearance of each color in the palette
-      @colors = colors.each_with_index.to_a.reverse.to_h
-      @index  = find_slot
+      colors.each_with_index{ |c, i| @colors[i] = !!c ? c & 0xFFFFFF : nil }
+      self
     end
 
-    # Changes the maximum size of the color table. The encoder will always use
-    # the smallest possible size that fits all colors, so this is only intended
-    # to force a smaller (than 256) limit. The new size is specified in bits and
-    # must be between 1 and 8, thus yielding a table size between 2 and 256 colors.
-    # The policy specifies what to do if the new size doesn't fit all the colors
-    # currently present in the table.
-    # @param bits [Integer] New table size in bits (1-8).
-    # @param policy [Symbol] Specifies how to handle when the new size doesn't
-    #   fit the current colors in the table:
-    #   * `:strict` will raise an exception. It will never modify existing colors.
-    #   * `:reorder` will rearrange the colors by removing empty intermediate
-    #     slots if that's enough to make the colors fit. It will never delete colors.
-    #   * `:truncate` will simply truncate the necessary colors from the end of the table.
-    def resize(bits, policy = :strict)
-      raise ColorTableError, "Color table bit size must be between 1 and 8." if !bits.between?(1, 8)
-      max_index = @colors.values.max || 0
-
-      # Current colors fit in new size without changes
-      if max_index < 1 << bits
-        return (@max_size = 1 << bits)
-      elsif policy == :strict
-        raise ColorTableError, "Color table could not be resized (strict policy)"
-      end
-
-      # Current colors do not fit in new size
-      if policy == :reorder
-        if @colors.size <= 1 << bits
-          reset
-          return (@max_size = 1 << bits)
+    # Eliminates duplicate colors from the color table. This will keep the first
+    # instance of each color untouched (i.e., its index will remain valid), and
+    # set subsequence duplicate entries to `nil`.
+    # @note (see #set)
+    # @return (see #initialize)
+    # @see #simplify
+    def uniq
+      unique_colors = Set.new
+      for i in (0 ... MAX_SIZE)
+        next if !@colors[i]
+        if @colors[i].in?(unique_colors)
+          @colors[i] = nil
         else
-          raise ColorTableError, "Color table could not be resized (truncation needed)"
+          unique_colors.add(@colors[i])
         end
-      elsif policy == :truncate
-        @colors.delete_if{ |color, index| index >= 1 << bits }
-        return (@max_size = 1 << bits)
-      else
-        raise ColorTableError, "Unknown table resizing policy"
       end
+      self
     end
 
-    # Rearranges all the colors in the color table to remove empty intermediate
-    # slots, by laying out all colors subsequently from the start.
-    def reset
-      @colors = @colors.keys.each_with_index.to_h
-      @index = @colors.size < @max_size - 1 ? @colors.size : nil
+    # Rearrange all colors to remove empty intermediate slots. This is accomplished
+    # by laying out all colors subsequently from the start. The order of the
+    # actual colors is preserved.
+    # @return (see #initialize)
+    # @note (see #set)
+    # @see #simplify
+    def compact
+      @colors.compact!
+      @colors += [nil] * (MAX_SIZE - @colors.size)
+      self
+    end
+
+    # Simplifies the color table by removing color duplicates and empty slots.
+    # It's equivalent to `uniq` + `compact`.
+    # @return (see #initialize)
+    # @see #uniq
+    # @see #compact
+    # @note (see #set)
+    def simplify
+      uniq
+      compact
     end
 
     # Empties the whole color table, bringing its size down to 0.
+    # @return (see #initialize)
+    # @note (see #set)
     def clear
-      @colors = {}
-      @index = 0
+      @colors = [nil] * MAX_SIZE
+      self
     end
+
+    alias_method :reset, :clear
 
     # Rearrange a subset of colors in the table according to a permutation.
     # The permutation must match the length of the provided colors. For example,
-    # if we pass the colors `A, B, C, D` and the permutation `3, 1, 4, 2`, the
+    # if we pass the colors `A, B, C, D` and the permutation `[2, 0, 3, 1]`, the
     # colors will now be sorted like `C, A, D, B`.
     # @param colors [Integers] The colors to rearrange.
     # @param order [Array<Integer>] The permutation according to which to rearrange.
-    def permutate(*colors, order: [])
+    # @return (see #initialize)
+    # @see #cycle
+    def permute(*colors, order: [])
       # Ensure permutation makes sense for the provided colors
-      if order.sort != colors.size.times.to_a
-        raise ColorTableError, "Cannot permutate colors: Permutation is invalid."
+      if order.sort != colors.size.times.to_a || order.uniq.size != order.size
+        raise ColorTableError, "Cannot permute colors: Permutation is invalid."
       end
 
       # Ensure provided colors are in the table
-      indices = colors.map{ |c| @colors[c] }
-      raise ColorTableError, "Can't cycle colors: Color not found." if !indices.all?
-
-      for i in (0 ... indices.size) do
-        @colors[i] = indices[order[i]]
+      if !(colors - @colors).empty?
+        raise ColorTableError, "Cannot permute colors: Color not found."
       end
+
+      mapping = colors.each_with_index.map{ |c, i| [c, colors[order[i]]] }.to_h
+      @colors.map!{ |c| mapping[c] || c }
+      
+      self
     end
 
-    # Rearrange a subset of colors in the table according to a cycle (see
-    # {#permutate}). For example, if we cycle the colors `A, B, C, D` with a
-    # step of -2, the colors become `C, D, A, B`.
+    # Rearrange a subset of colors in the table according to a cycle. For
+    # example, if we cycle the colors `A, B, C, D` with a step of -2, the colors
+    # become `C, D, A, B`.
     # @param colors [Integers] The sequence of colors to shift in a cycle.
     # @param step [Integer] The positive or negative step to take in the shift.
+    # @return (see #initialize)
+    # @see #permute
     def cycle(*colors, step: 1)
-      permutation = colors.times.map{ |i| (i - step) % indices.size }
-      permutate(*colors, order: permutation)
+      permutation = colors.times.map{ |i| (i - step) % colors.size }
+      permute(*colors, order: permutation)
     end
 
     # Swap 2 colors of the color table. This can be used to change the theme of
     # a GIF in a trivial way.
     # @param col_a [Integer] First color to swap.
     # @param col_b [Integer] Second color to swap.
+    # @return (see #initialize)
     def swap(col_a, col_b)
-      permutate(col_a, col_b, order: [1, 0])
+      permute(col_a, col_b, order: [1, 0])
     end
 
     # Insert new colors into the color table.
     # @param colors [Integers] The colors to add.
-    # @return [Integer] The table index of the (last) added color.
+    # @return (see #initialize)
     def add(*colors)
-      if @colors.size + colors.size > @max_size
-        raise ColorTableError, "Cannot add #{colors.size} colors to the color\
-          table: Palette would overflow."
+      colors -= @colors
+      if @colors.size + colors.size > MAX_SIZE
+        raise ColorTableError, "Cannot add colors to the color table:\
+          Table over size limit (#{MAX_SIZE})."
       end
       colors.each{ |c| add_color(c) }
+      self
     end
 
     # Delete colors from the color table.
     # @param colors [Integers] The colors to delete.
-    # @return [Boolean] Whether all colors were found (and deleted) or not.
+    # @return (see #initialize)
     def delete(*colors)
-      colors.all?{ |c| delete_color(c) }
+      colors.each{ |c| replace(c, nil) }
+      self
     end
 
-    # Changes one color in the table with a different value. The value must be
-    # new, as the colors in the table must be unique.
+    # Changes one color in the table to another one.
     # @param old_color [Integer] The color to replace.
     # @param new_color [Integer] The color to change it to.
+    # @return (see #initialize)
     def replace(old_color, new_color)
-      raise ColorTableError, "Cannot change color: New color already exists." if @colors[new_color]
-      @colors[new_color & 0xFFFFFF] = @colors[old_color]
-      @colors.delete(old_color)
+      new_color = !!new_color ? new_color & 0xFFFFFF : nil
+      @colors.map!{ |c| c == old_color ? new_color : c }
+      self
     end
 
     # Inverts all the colors in the table.
+    # @return (see #initialize)
     def invert
       @colors.each{ |c| replace(c, c ^ 0xFFFFFF) }
+      self
     end
 
-    # Find the actual bit size of the color table
+    # Find the actual bit size of the color table.
     # @private
-    def real_size
-      [Math.log2(@colors.values.max + 1).ceil, 1].max
+    def bit_size
+      [Math.log2(last + 1).ceil, 1].max
+    end
+
+    # Real size of the table that will be used by the encoder. The size is the
+    # smallest power of 2 capable of holding all colors currently in the list.
+    # It must be at least 2, even if there's a single color in the table.
+    # @return [Integer] Size of the table.
+    # @see #count
+    def size
+      2 ** bit_size
+    end
+
+    alias_method :length, :size
+
+    # Count of actual colors present in the table.
+    # @return [Integer] Color count.
+    # @see #size
+    # @see #distinct
+    def count
+      @colors.count{ |c| !!c }
+    end
+
+    # Count of distinct colors present in the table. See {#count}.
+    # @return [Integer] Distinct color count.
+    # @see #count
+    def distinct
+      @colors.uniq.count{ |c| !!c }
     end
 
     private
 
-    # Find index of the first empty slot in the color table (nil if full)
+    # Find the last slot containing a color.
+    def last
+      @colors.rindex{ |c| !!c }
+    end
+
+    # Find the first empty slot (nil if full).
     def find_slot
-      @colors.values.sort.each_with_index.find{ |c, i| c != i  }[1]
+      @colors.index(nil)
     end
 
-    # Add an individual color to the color table, return its index
+    # Add an individual color to the color table
     def add_color(color)
-      ind = @colors[color & 0xFFFFFF]
-      return ind if ind
-      raise ColorTableError, "Cannot add color to the color table: Palette is full." if !@index
-      @colors[color & 0xFFFFFF] = @index
-      ind = @index
-      @index = find_slot
-      ind
-    end
-
-    # Delete an individual color from the color table, return whether it was found and deleted
-    def delete_color(color)
-      ind = @colors.delete(color)
-      @index = ind if ind && ind < @index
-      !!ind
+      return if !color || @colors.include?(color & 0xFFFFFF)
+      index = find_slot
+      raise ColorTableError, "Cannot add color to the color table: Palette is full." if !index
+      @colors[index] = color & 0xFFFFFF
     end
 
   end

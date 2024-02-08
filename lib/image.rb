@@ -69,7 +69,7 @@ module Gifenc
       @lct.encode(stream) if @lct
 
       # LZW-compressed image data
-      min_bits = @lct ? @lct.real_size : 8
+      min_bits = @lct ? @lct.bit_size : 8
       stream << min_bits.chr
       lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits)
       stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
