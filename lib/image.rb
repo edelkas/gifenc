@@ -43,11 +43,6 @@ module Gifenc
     # @return [Integer] Index of the canvas color in the color table.
     attr_accessor :color
 
-    # Time, in 1/100ths of a second, to display this image before moving on to
-    # the next one.
-    # @return [Integer] Time to display the image.
-    attr_accessor :delay
-
     # The local color table to use for this image. If left unspecified (`nil`),
     # the global color table will be used.
     # @return [ColorTable] Local color table.
@@ -65,16 +60,29 @@ module Gifenc
     # @param x [Integer] Horizontal offset of the image in the logical screen.
     # @param y [Integer] Vertical offset of the image in the logical screen.
     # @param color [Integer] The initial color of the canvas.
+    # @param gce [GraphicControlExtension] An optional {Extension::GraphicControlExtension
+    #   Graphic Control Extension} for the image. This extension controls mainly
+    #   3 things: the image's *delay* onscreen, the color to use for
+    #   *transparency*, and the *disposal* method to employ before displaying
+    #   the next image. These things can instead be supplied individually in their
+    #   corresponding parameters: `delay`, `trans_color` and `disposal`. Each
+    #   individually passed parameter will override the corresponding value in
+    #   the GCE, if supplied. If neither a GCE nor any of the 3 individual
+    #   parameters is used, then a GCE will not be built, unless the attributes
+    #   are written to later.
     # @param delay [Integer] Time, in 1/100ths of a second, to wait before
-    #   displaying the next image.
-    # @param trans_color [Integer] Index of color to use as transparent color.
+    #   displaying the next image (see {#delay} for details).
+    # @param trans_color [Integer] Index of the color to use for transparency
+    #   (see {#trans_color} for details)
+    # @param disposal [Integer] The disposal method to use after displaying
+    #   this image and before displaying the next one (see {#disposal} for details).
     # @param interlace [Boolean] Whether the pixel data of this image is
     #   interlaced or not.
     # @param lct [ColorTable] Add a Local Color Table to this image, overriding
     #   the global one.
     # @return [Image] The image.
-    def initialize(width, height, x = 0, y = 0, color: 0, delay: nil,
-      trans_color: nil, interlace: false, lct: nil)
+    def initialize(width, height, x = 0, y = 0, color: 0, gce: nil, delay: nil,
+      trans_color: nil, disposal: nil, interlace: false, lct: nil)
       # Image attributes
       @width     = width
       @height    = height
@@ -88,17 +96,10 @@ module Gifenc
       @pixels    = [@color] * (width * height)
 
       # Extended features
-      @delay       = delay
-      @trans_color = trans_color
-      @extensions  = []
-
-      if !@delay.nil? || !@trans_color.nil?
-        @extensions << GraphicControlExtension.new(
-          delay:        @delay,
-          transparency: !@trans_color.nil?,
-          trans_color:  @trans_color
-        )
-      end
+      @gce = gce ? gce.dup : GraphicControlExtension.new
+      @gce.delay        = delay       if delay
+      @gce.trans_color  = trans_color if trans_color
+      @gce.disposal     = disposal    if disposal
     end
 
     # Encode the image data to GIF format and write it to a stream.
@@ -125,40 +126,76 @@ module Gifenc
       stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
     end
 
-    # Extend the current image with the specified local extension.
-    # @param extension [Extension] The extension to apply to this image.
-    # @param quiet [Boolean] On failure, whether to raise an exception or just
-    #   return gracefully.
-    # @return (see #initialize)
-    # @raise [ExtensionError] If the extension cannot be applied to this image
-    #   (e.g. if the specified extension is global, or if the image already has
-    #   one of a kind that must be unique).
-    def extend(extension, quiet: false)
-      if extension.is_a?(GraphicControlExtension) &&
-        @extensions.any?{ |e| e.is_a?(GraphicControlExtension) }
-        return self if quiet
-        raise ExtensionError, "Cannot extend, image already has a Graphic\
-          Control Extension."
-      end
-      if extension.is_a?(ApplicationExtension)
-        return self if quiet
-        raise ExtensionError, "Application extensions have a global scope, they\
-          must be assigned to the whole GIF object, not individual images."
-      end
-      @extensions << extension
-      self
-    end
-
     # Create a duplicate copy of this image.
     # @return [Image] The new image.
     def dup
       lct = @lct ? @lct.dup : nil
+      gce = @gce ? @gce.dup : nil
       image = Image.new(
-        @width, @height, @x, @y, color: @color, delay: @delay,
-        trans_color: @trans_color, interlace: @interlace, lct: lct
+        @width, @height, @x, @y,
+        color: @color, gce: gce, delay: @delay, trans_color: @trans_color,
+        disposal: @disposal, interlace: @interlace, lct: lct
       )
-      @extensions.each{ |e| image.extend(e.dup, quiet: true) }
       image
+    end
+
+    # Get current delay, in 1/100ths of a second, to display this image before
+    # moving on to the next one. Note that very small delays are typically not
+    # supported, see {Extension::GraphicControlExtension#delay} for more details.
+    # @return [Integer] Time to display the image.
+    # @see Extension::GraphicControlExtension#delay
+    def delay
+      @gce ? @gce.delay : nil
+    end
+
+    # Set current delay, in 1/100ths of a second, to display this image before
+    # moving on to the next one. Note that very small delays are typically not
+    # supported, see {Extension::GraphicControlExtension#delay} for more details.
+    # @return (see #delay)
+    # @see (see #delay)
+    def delay=(value)
+      @gce = GraphicControlExtension.new if !@gce
+      @gce.delay = value
+    end
+
+    # Get the disposal method of the image, which specifies how to handle the
+    # disposal of this image before displaying the next one in the GIF. See
+    # {Extension::GraphicControlExtension#disposal} for details about the
+    # different disposal methods available.
+    # @return [Integer] The current disposal method.
+    # @see Extension::GraphicControlExtension#disposal
+    def disposal
+      @gce ? @gce.disposal : nil
+    end
+
+    # Set the disposal method of the image, which specifies how to handle the
+    # disposal of this image before displaying the next one in the GIF. See
+    # {Extension::GraphicControlExtension#disposal} for details about the
+    # different disposal methods available.
+    # @return (see #disposal)
+    # @see (see #disposal)
+    def disposal=(value)
+      @gce = GraphicControlExtension.new if !@gce
+      @gce.disposal = value
+    end
+
+    # Get the index (in the color table) of the transparent color. Pixels with
+    # this color aren't rendered, and instead the background shows through them.
+    # See {Extension::GraphicControlExtension#trans_color} for more details.
+    # @return [Integer] Index of the transparent color.
+    # @see Extension::GraphicControlExtension#trans_color
+    def trans_color
+      @gce ? @gce.trans_color : nil
+    end
+
+    # Set the index (in the color table) of the transparent color. Pixels with
+    # this color aren't rendered, and instead the background shows through them.
+    # See {Extension::GraphicControlExtension#trans_color} for more details.
+    # @return (see #trans_color)
+    # @see (see #trans_color)
+    def trans_color=(value)
+      @gce = GraphicControlExtension.new if !@gce
+      @gce.trans_color = value
     end
 
     # Change the pixel data (color indices) of the image. The size of the array

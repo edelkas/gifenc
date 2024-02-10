@@ -26,7 +26,7 @@ module Gifenc
 
     # This extension precedes a *single* image and controls several of its rendering
     # charactestics, such as its duration and the transparent color index. A
-    # complete description, adapted from the specification, follows:
+    # complete description, mostly adapted from the specification, follows:
     # - **Disposal method** (*3 bits*): Indicates in which way should be image be
     #   disposed of before displaying the next one.
     #   * 0 - No disposal specified. This image will be fully replaced by the next
@@ -59,14 +59,23 @@ module Gifenc
     #   encountered, the corresponding pixel of the display device is not
     #   modified and processing goes on to the next pixel. This is done if and
     #   only if the Transparency Flag is set to 1.
+    #
+    # Note that, in reality, most software does not perfectly conform to this
+    # standard. Notably, the user input flag is mostly ignored, and very small
+    # delays are changed to a higher value (see {#delay}).
     class GraphicControlExtension < Extension
 
       # Label identifying a Graphic Control Extension block.
       LABEL = 0xF9
 
       # Specifies the time, in 1/100ths of a second, to leave this image onscreen
-      # before moving on to rendering the next one in the GIF. If `0`, processing
-      # of the GIF continues immediately.
+      # before moving on to rendering the next one in the GIF. Must be between
+      # 0 and 65535. If `0`, processing of the GIF should continue immediately.
+      # In reality, however, programs almost never comply with this standard, and
+      # instead normalize very small delays up to a certain, slower value. For
+      # instance, in most browsers, values smaller than 2 (i.e. 0 and 1) will be
+      # changed to 10, resulting in the fastest possible speed being attained
+      # with a delay of 2 (20ms, or 50fps).
       # @return [Integer] Time to leave image onscreen.
       attr_accessor :delay
 
@@ -82,23 +91,17 @@ module Gifenc
       # * `3` : Restore to previous. The previous undisposed image will be
       #         restored, and the next one will be drawn over it. Useful for
       #         animating over a fixed background.
+      # Note that support for all disposal methods might be incomplete in some
+      # pieces of software.
       # @return [Integer] Disposal method.
       attr_accessor :disposal
 
-      # Whether or not this image has a color that will be rendered transparent.
-      # By default, this is set to `true` if a color is provided in the
-      # {#trans_color} field, and `false` otherwise.
-      # @return [Boolean] Transparency flag.
-      # @see #trans_color
-      attr_accessor :transparency
-
       # Index in the color table of the color to render as transparent. If
-      # specified, the {#transparency} flag will be set to `true` by default.
-      # Whatever is in the background (as specified by the {#disposal} flag of
-      # the previous frames) will show through the transparent pixels of the
-      # current image.
+      # specified, the transparency flag in the GIF will be set by default.
+      # Whatever is in the background (e.g. the background color, or a previous
+      # frame, see {#disposal}) will the show through the transparent pixels of
+      # the current image. To disable transparency, simply set this to `nil`.
       # @return [Integer] Index of transparent color.
-      # @see #transparency
       attr_accessor :trans_color
 
       # Whether or not user input is required to continue onto the next image.
@@ -110,17 +113,12 @@ module Gifenc
       # Create a new Graphic Control Extension associated to a particular image.
       # @param delay [Integer] Number of 1/100ths of a second (0-65535) to wait
       #   before rendering next image in the GIF file. Beware that most software
-      #   does not support ultra fast GIFs (e.g. very low delays).
+      #   does not support ultra fast GIFs (see {#delay}).
       # @param disposal [Integer] The disposal method (0-7) indicates how to
       #   dispose of this image before displaying the next one (see {#disposal}).
       # @param trans_color [Integer] Color table index (0-255) of the color that
       #   should be used as the transparent color. The transparent color maintains
       #   whatever color was present in that pixel before rendering this image.
-      # @param transparency [Boolean] Whether a transparent color is supplied.
-      #   Normally you **don't** want to set this argument manually, as it will be
-      #   set to `true` or `false` automatically depending on whether or not a
-      #   transparent color has been supplied. This argument is used to manually
-      #   override the value of this field.
       # @param user_input [Boolean] Whether or not user input is expected to
       #   continue rendering the subsequent GIF images (mostly deprecated flag).
       # @return [GraphicControlExtension] The newly created Graphic Control
@@ -129,14 +127,12 @@ module Gifenc
           delay:        10,
           disposal:     DISPOSAL_NONE,
           trans_color:  nil,
-          transparency: nil,
           user_input:   false
         )
         super(LABEL)
 
         @disposal     = (0...8).include?(disposal) ? disposal : DISPOSAL_NONE
         @user_input   = user_input
-        @transparency = !transparency.nil? ? transparency : !trans_color.nil?
         @delay        = delay & 0xFFFF
         @trans_color  = (trans_color || 0x00) & 0xFF
       end
@@ -147,17 +143,17 @@ module Gifenc
       def body
         # Packed flags
         flags = [
-          (0                       & 0b111) << 5 |
-          (@disposal               & 0b111) << 2 |
-          ((@user_input   ? 1 : 0) & 0b1  ) << 1 |
-          ((@transparency ? 1 : 0) & 0b1  )
+          (0                            & 0b111) << 5 |
+          ((@disposal || DISPOSAL_NONE) & 0b111) << 2 |
+          ((@user_input    ? 1 : 0)     & 0b1  ) << 1 |
+          ((!!@trans_color ? 1 : 0)     & 0b1  )
         ].pack('C')
 
         # Main params
-        str = '\x04'                     # Block size (always 4 bytes)
-        str += flags                     # Packed fields
-        str += [@delay].pack('S<')       # Delay time
-        str += [@trans_color].pack('C')  # Transparent index
+        str = "\x04"                         # Block size (always 4 bytes)
+        str += flags                         # Packed fields
+        str += [@delay.to_i].pack('S<')      # Delay time
+        str += [@trans_color.to_i].pack('C') # Transparent index
         str += BLOCK_TERMINATOR
 
         str
@@ -167,11 +163,10 @@ module Gifenc
       # @return [GraphicControlExtension] The new extension object.
       def dup
         GraphicControlExtension.new(
-          delay:        @delay,
-          disposal:     @disposal,
-          trans_color:  @trans_color,
-          transparency: @transparency,
-          user_input:   @user_input
+          delay:       @delay,
+          disposal:    @disposal,
+          trans_color: @trans_color,
+          user_input:  @user_input
         )
       end
     end
