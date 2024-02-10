@@ -60,7 +60,7 @@ module Gifenc
     # @param x [Integer] Horizontal offset of the image in the logical screen.
     # @param y [Integer] Vertical offset of the image in the logical screen.
     # @param color [Integer] The initial color of the canvas.
-    # @param gce [GraphicControlExtension] An optional {Extension::GraphicControlExtension
+    # @param gce [Extension::GraphicControl] An optional {Extension::GraphicControl
     #   Graphic Control Extension} for the image. This extension controls mainly
     #   3 things: the image's *delay* onscreen, the color to use for
     #   *transparency*, and the *disposal* method to employ before displaying
@@ -96,7 +96,7 @@ module Gifenc
       @pixels    = [@color] * (width * height)
 
       # Extended features
-      @gce = gce ? gce.dup : GraphicControlExtension.new
+      @gce = gce ? gce.dup : Extension::GraphicControl.new
       @gce.delay        = delay       if delay
       @gce.trans_color  = trans_color if trans_color
       @gce.disposal     = disposal    if disposal
@@ -141,60 +141,60 @@ module Gifenc
 
     # Get current delay, in 1/100ths of a second, to display this image before
     # moving on to the next one. Note that very small delays are typically not
-    # supported, see {Extension::GraphicControlExtension#delay} for more details.
+    # supported, see {Extension::GraphicControl#delay} for more details.
     # @return [Integer] Time to display the image.
-    # @see Extension::GraphicControlExtension#delay
+    # @see Extension::GraphicControl#delay
     def delay
       @gce ? @gce.delay : nil
     end
 
     # Set current delay, in 1/100ths of a second, to display this image before
     # moving on to the next one. Note that very small delays are typically not
-    # supported, see {Extension::GraphicControlExtension#delay} for more details.
+    # supported, see {Extension::GraphicControl#delay} for more details.
     # @return (see #delay)
     # @see (see #delay)
     def delay=(value)
-      @gce = GraphicControlExtension.new if !@gce
+      @gce = Extension::GraphicControl.new if !@gce
       @gce.delay = value
     end
 
     # Get the disposal method of the image, which specifies how to handle the
     # disposal of this image before displaying the next one in the GIF. See
-    # {Extension::GraphicControlExtension#disposal} for details about the
+    # {Extension::GraphicControl#disposal} for details about the
     # different disposal methods available.
     # @return [Integer] The current disposal method.
-    # @see Extension::GraphicControlExtension#disposal
+    # @see Extension::GraphicControl#disposal
     def disposal
       @gce ? @gce.disposal : nil
     end
 
     # Set the disposal method of the image, which specifies how to handle the
     # disposal of this image before displaying the next one in the GIF. See
-    # {Extension::GraphicControlExtension#disposal} for details about the
+    # {Extension::GraphicControl#disposal} for details about the
     # different disposal methods available.
     # @return (see #disposal)
     # @see (see #disposal)
     def disposal=(value)
-      @gce = GraphicControlExtension.new if !@gce
+      @gce = Extension::GraphicControl.new if !@gce
       @gce.disposal = value
     end
 
     # Get the index (in the color table) of the transparent color. Pixels with
     # this color aren't rendered, and instead the background shows through them.
-    # See {Extension::GraphicControlExtension#trans_color} for more details.
+    # See {Extension::GraphicControl#trans_color} for more details.
     # @return [Integer] Index of the transparent color.
-    # @see Extension::GraphicControlExtension#trans_color
+    # @see Extension::GraphicControl#trans_color
     def trans_color
       @gce ? @gce.trans_color : nil
     end
 
     # Set the index (in the color table) of the transparent color. Pixels with
     # this color aren't rendered, and instead the background shows through them.
-    # See {Extension::GraphicControlExtension#trans_color} for more details.
+    # See {Extension::GraphicControl#trans_color} for more details.
     # @return (see #trans_color)
     # @see (see #trans_color)
     def trans_color=(value)
-      @gce = GraphicControlExtension.new if !@gce
+      @gce = Extension::GraphicControl.new if !@gce
       @gce.trans_color = value
     end
 

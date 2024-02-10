@@ -58,7 +58,7 @@ module Gifenc
       # If we want the GIF to loop, then add the Netscape Extension
       if @loops != 0
         loops = @loops == -1 ? 0 : @loops
-        @extensions << NetscapeExtension.new(loops)
+        @extensions << Extension::Netscape.new(loops)
       end
     end
 

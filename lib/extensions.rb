@@ -63,7 +63,7 @@ module Gifenc
     # Note that, in reality, most software does not perfectly conform to this
     # standard. Notably, the user input flag is mostly ignored, and very small
     # delays are changed to a higher value (see {#delay}).
-    class GraphicControlExtension < Extension
+    class GraphicControl < Extension
 
       # Label identifying a Graphic Control Extension block.
       LABEL = 0xF9
@@ -121,7 +121,7 @@ module Gifenc
       #   whatever color was present in that pixel before rendering this image.
       # @param user_input [Boolean] Whether or not user input is expected to
       #   continue rendering the subsequent GIF images (mostly deprecated flag).
-      # @return [GraphicControlExtension] The newly created Graphic Control
+      # @return [GraphicControl] The newly created Graphic Control
       #   Extension block.
       def initialize(
           delay:        10,
@@ -160,9 +160,9 @@ module Gifenc
       end
 
       # Create a duplicate copy of this graphic control extension.
-      # @return [GraphicControlExtension] The new extension object.
+      # @return [GraphicControl] The new extension object.
       def dup
-        GraphicControlExtension.new(
+        GraphicControl.new(
           delay:       @delay,
           disposal:    @disposal,
           trans_color: @trans_color,
@@ -186,7 +186,7 @@ module Gifenc
     #   the Application Extension.
     # - **Application Data**: The actual contents of the extension block, specific
     #   to each type of application extension.
-    class ApplicationExtension < Extension
+    class Application < Extension
 
       # Label identifying an Application Extension block.
       LABEL = 0xFF
@@ -208,7 +208,7 @@ module Gifenc
       # @param code [String] The Application Authentication Code. Should be a 3
       #   character binary string (note that it will be truncated and padded to
       #   3 characters during encoding).
-      # @return [ApplicationExtension] The newly created Application Extension
+      # @return [Application] The newly created Application Extension
       #   block.
       def initialize(id, code)
         super(LABEL)
@@ -238,7 +238,7 @@ module Gifenc
     # - **Sub-block ID** (*1 byte*): Identifies the sub-block (always 1).
     # - **Loop count** (*2 bytes*): Number of iterations (0-65535) the GIF should
     #   be looped. A count of 0 means loop indefinitely.
-    class NetscapeExtension < ApplicationExtension
+    class Netscape < Application
 
       # The amount of times to loop the GIF. Must be between 0 and 65535, where
       # 0 indicates to loop indefinitely.
@@ -247,7 +247,7 @@ module Gifenc
 
       # Create a new Netscape Extension block.
       # @param loops [Integer] Times (0-65535) to loop the GIF (`0` = infinite).
-      # @return [NetscapeExtension] The newly created Netscape Extension block.
+      # @return [Netscape] The newly created Netscape Extension block.
       def initialize(loops = 0)
         super('NETSCAPE', '2.0')
         @loops = loops.clamp(0, 2 ** 16 - 1)
@@ -262,9 +262,9 @@ module Gifenc
       end
 
       # Create a duplicate copy of this Netscape extension.
-      # @return [NetscapeExtension] The new extension object.
+      # @return [Netscape] The new extension object.
       def dup
-        NetscapeExtension.new(@loops)
+        Netscape.new(@loops)
       end
     end
   end
