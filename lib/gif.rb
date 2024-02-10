@@ -1,12 +1,17 @@
-require_relative 'image.rb'
-require_relative 'extensions.rb'
-
 module Gifenc
 
   # Represents a GIF file, possibly composed of multiple images. Note that each
   # image in a GIF file is not necessarily an animation frame, they could also be
   # still images that should be layered on top of each other.
   class Gif
+
+    # 6-byte block indicating the beginning of the GIF data stream.
+    # It is composed of the signature (GIF) and the version (89a).
+    HEADER = 'GIF89a'
+
+    # 1-byte block indicating the termination of the GIF data stream.
+    TRAILER = ';'
+
     # Creates a new GIF object.
     # @param width  [Integer] Width of the logical screen (canvas) in pixels.
     # @param height [Integer] Height of the logical screen (canvas) in pixels.
@@ -70,6 +75,7 @@ module Gifenc
     # @param width [Integer] The width of the new image in pixels.
     # @param height [Integer] The height of the new image in pixels.
     # @return [Image] The inserted image.
+    # @raise [GifError] If the specified index is out of range.
     def insert(i, image = nil, width: @width, height: @height, x: 0, y: 0,
       color: @bg, delay: @delay, trans_color: @bg, interlace: false, lct: nil)
       range = (-@images.size - 1 .. @images.size)

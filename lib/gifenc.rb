@@ -1,20 +1,28 @@
-require_relative 'gif.rb'
-require_relative 'image.rb'
-require_relative 'extensions.rb'
-
 # Gifenc is a Ruby library to encode and decode GIF files, aiming to eventually
-# implement the complete specification (file:docs/spec-gif89a.txt Reference)
+# implement the complete {file:docs/Specification.md specification}.
 # The Gifenc module serves as a namespace to encapsulate the functionality
 # of the entire library.
 module Gifenc
 
-  # 6-byte block indicating the beginning of the GIF data stream.
-  # It is composed of the signature (GIF) and the version (89a).
-  HEADER = 'GIF89a'
-
   # 1-byte block indicating the termination of a sequence of data sub-blocks.
   BLOCK_TERMINATOR = "\x00"
 
-  # 1-byte block indicating the termination of the GIF data stream.
-  TRAILER = ';'
+  # Fully replace a frame with the next one.
+  DISPOSAL_REPLACE = 0
+
+  # Do not dispose a frame before displaying the next one.
+  DISPOSAL_NONE = 1
+
+  # Restore to background color before displaying the next frame.
+  DISPOSAL_BG = 2
+
+  # Restore to the previous undisposed frame before displaying the next one.
+  DISPOSAL_PREV = 3
 end
+
+require_relative 'util.rb'
+require_relative 'errors.rb'
+require_relative 'color_table.rb'
+require_relative 'extensions.rb'
+require_relative 'image.rb'
+require_relative 'gif.rb'

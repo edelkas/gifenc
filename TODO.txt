@@ -1,5 +1,3 @@
-- Test if the disposal flag does something (what happens when we choose different
-  values in an animation?).
 - Allow to work in 2 modes: palette mode and canvas mode. Palette mode you work
   with the color indices directly (with helpers), and canvas mode you work with
   the colors and then eventually the palette needs to be created based on those
@@ -23,3 +21,8 @@
 - Add attributes (attr_accessor...) to many classes (e.g. Gif, Image...)
 - Add more tags to the documentation (e.g. @raise, @todo...)
 - Should we send indices or colors to Image.get, Image.set, Image.[], Image.[]= ???
+- What happens when an image is placed at least partially out of bounds with respect
+  to the logical screen? Does it get cropped, is the GIF corrupt? Perhaps we should
+  either raise an exception here or crop the image, or let the user choose between
+  these two policies.
+- Add Rake tests

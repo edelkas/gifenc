@@ -1,19 +1,63 @@
 require 'lzwrb'
-require_relative 'util.rb'
 
 module Gifenc
   # Represents a single image. A GIF may contain multiple images, and they need
   # not be animation frames (they could simply be tiles of a static image).
   # Crucially, images can be smaller than the GIF logical screen (canvas), thus
   # being placed at an offset of it, saving space and time, and allowing for more
-  # complex compositions.
+  # complex compositions. How each image interacts with the previous ones depends
+  # on properties like the disposal method ({#disposal}) and the transparency
+  # ({#trans_color}).
   #
   # Most methods modifying the image return the image itself, so that they can
   # be chained properly.
   class Image
 
+    # Width of the image in pixels. Use the {#resize} method to change it.
+    # @return [Integer] Image width.
+    # @see #resize
+    attr_reader :width
+
+    # Height of the image in pixels. Use the {#resize} method to change it.
+    # @return [Integer] Image height.
+    # @see #resize
+    attr_reader :height
+
+    # The image's horizontal offset in the GIF's logical screen. Note that the
+    # image will be cropped if it overflows the logical screen's boundary.
+    # @return [Integer] Image X offset.
+    # @see #move
+    # @see #place
+    attr_accessor :x
+
+    # The image's vertical offset in the GIF's logical screen. Note that the
+    # image will be cropped if it overflows the logical screen's boundary.
+    # @return [Integer] Image Y offset.
+    # @see #move
+    # @see #place
+    attr_accessor :y
+
+    # Default color of the canvas. This is the initial color of the image, as
+    # well as the color that appears in the new regions when the canvas is
+    # is enlarged.
+    # @return [Integer] Index of the canvas color in the color table.
+    attr_accessor :color
+
+    # Time, in 1/100ths of a second, to display this image before moving on to
+    # the next one.
+    # @return [Integer] Time to display the image.
+    attr_accessor :delay
+
+    # The local color table to use for this image. If left unspecified (`nil`),
+    # the global color table will be used.
+    # @return [ColorTable] Local color table.
+    attr_accessor :lct
+
     # Contains the table based image data (the color indexes for each pixel).
-    attr_accessor :pixels
+    # Use the {#replace} method to bulk change the pixel data.
+    # @return [Array<Integer>] Pixel data.
+    # @see #replace
+    attr_reader :pixels
 
     # Create a new image or frame.
     # @param width [Integer] Width of the image in pixels.
@@ -21,11 +65,16 @@ module Gifenc
     # @param x [Integer] Horizontal offset of the image in the logical screen.
     # @param y [Integer] Vertical offset of the image in the logical screen.
     # @param color [Integer] The initial color of the canvas.
-    # @param delay [Integer] Time, in 1/100ths of a second, to wait before displaying the next image.
+    # @param delay [Integer] Time, in 1/100ths of a second, to wait before
+    #   displaying the next image.
     # @param trans_color [Integer] Index of color to use as transparent color.
-    # @param interlace [Boolean] Whether the pixel data of this image is interlaced or not.
-    # @param lct [ColorTable] Add a Local Color Table to this image, overriding the global one.
-    def initialize(width, height, x = 0, y = 0, color: 0, delay: nil, trans_color: nil, interlace: false, lct: nil)
+    # @param interlace [Boolean] Whether the pixel data of this image is
+    #   interlaced or not.
+    # @param lct [ColorTable] Add a Local Color Table to this image, overriding
+    #   the global one.
+    # @return [Image] The image.
+    def initialize(width, height, x = 0, y = 0, color: 0, delay: nil,
+      trans_color: nil, interlace: false, lct: nil)
       # Image attributes
       @width     = width
       @height    = height
@@ -54,6 +103,7 @@ module Gifenc
 
     # Encode the image data to GIF format and write it to a stream.
     # @param stream [IO] Stream to write the data to.
+    # @todo Add support for interlaced images.
     def encode(stream)
       # Optional extensions go before the image data
       stream << @extensions.each{ |e| e.encode(stream) }
@@ -75,29 +125,28 @@ module Gifenc
       stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
     end
 
-    # Extend the current image with the specified local extension. There are
-    # several reasons why this could fail (if the specified extension is global,
-    # or if the image already has one of a kind that must be unique).
+    # Extend the current image with the specified local extension.
     # @param extension [Extension] The extension to apply to this image.
     # @param quiet [Boolean] On failure, whether to raise an exception or just
     #   return gracefully.
-    # @return [Boolean] Whether the extension of the image was successful or not.
-    #   If `quiet = false`, this will always be `true`, as otherwise an exception
-    #   is raised.
+    # @return (see #initialize)
+    # @raise [ExtensionError] If the extension cannot be applied to this image
+    #   (e.g. if the specified extension is global, or if the image already has
+    #   one of a kind that must be unique).
     def extend(extension, quiet: false)
       if extension.is_a?(GraphicControlExtension) &&
         @extensions.any?{ |e| e.is_a?(GraphicControlExtension) }
-        return false if quiet
+        return self if quiet
         raise ExtensionError, "Cannot extend, image already has a Graphic\
           Control Extension."
       end
       if extension.is_a?(ApplicationExtension)
-        return false if quiet
+        return self if quiet
         raise ExtensionError, "Application extensions have a global scope, they\
           must be assigned to the whole GIF object, not individual images."
       end
       @extensions << extension
-      true
+      self
     end
 
     # Create a duplicate copy of this image.
@@ -112,13 +161,60 @@ module Gifenc
       image
     end
 
-    # Move the image to a different origin of coordinates.
+    # Change the pixel data (color indices) of the image. The size of the array
+    # must match the current dimensions of the canvas, otherwise a manual resize
+    # is first required.
+    # @param pixels [Array<Integer>] The new pixel data to fill the canvas.
+    # @raise [CanvasError] If the supplied pixel data length doesn't match the
+    #   canvas's current dimensions.
+    # @return (see #initialize)
+    def replace(pixels)
+      if pixels.size != @width * @height
+        raise CanvasError, "Pixel data doesn't match image dimensions. Please\
+          resize the image first."
+      end
+      @pixels = pixels
+      self
+    end
+
+    # Change the image's width and height. If the provided values are smaller,
+    # the image is cropped. If they are larger, the image is padded with the
+    # color specified by {#color}.
+    # @return (see #initialize)
+    def resize(width, height)
+      @pixels = @pixels.each_slice(@width).map{ |row|
+        width > @width ? row + [@color] * (width - @width) : row.take(width)
+      }
+      @pixels = height > @height ? @pixels + ([@color] * width) * (height - @height) : @pixels.take(height)
+      @pixels.flatten!
+      self
+    end
+
+    # Place the image at a different origin of coordinates.
     # @param x [Integer] New origin horizontal coordinate.
     # @param y [Integer] New origin vertical coordinate.
-    # @return [Image] The image.
-    def move(x, y)
+    # @return (see #initialize)
+    # @see #move
+    # @raise [CanvasError] If we're placing the image out of bounds.
+    # @todo We're only checking negative out of bounds, what about positive ones?
+    def place(x, y)
+      raise CanvasError, "Cannot move image, out of bounds." if @x < 0 || @y < 0
       @x = x
       @y = y
+      self
+    end
+
+    # Move the image relative to the current position.
+    # @param x [Integer] X displacement.
+    # @param y [Integer] Y displacement.
+    # @return (see #initialize)
+    # @see #place
+    # @raise [CanvasError] If the movement would place the image out of bounds.
+    # @todo We're only checking negative out of bounds, what about positive ones?
+    def move(x, y)
+      raise CanvasError, "Cannot move image, out of bounds." if @x < -x || @y < -y
+      @x += x
+      @y += y
       self
     end
 
@@ -146,6 +242,7 @@ module Gifenc
     # @param points [Array<Array<Integer>>] The list of points whose color should
     #   be retrieved. Must be an array of pairs of coordinates.
     # @return [Array<Integer>] The list of colors, in the same order.
+    # @raise [CanvasError] If any of the specified points is out of bounds.
     def get(points)
       check_bounds(points.min_by(&:first)[0], points.min_by(&:last)[1])
       check_bounds(points.max_by(&:first)[0], points.max_by(&:last)[1])
@@ -162,7 +259,8 @@ module Gifenc
     #   integer is passed, then all pixels will be set to the same color.
     #   Alternatively, an array with the same length as the points list must be
     #   passed, and each point will be set to the respective color in the list.
-    # @return [Image] The image.
+    # @return (see #initialize)
+    # @raise [CanvasError] If any of the specified points is out of bounds.
     def set(points, colors)
       check_bounds(points.min_by(&:first)[0], points.min_by(&:last)[1])
       check_bounds(points.max_by(&:first)[0], points.max_by(&:last)[1])
@@ -182,7 +280,8 @@ module Gifenc
     # @param width  [Integer] Width of the line in pixels.
     # @param anchor [Symbol]  For lines with `width > 1`, specifies what part of
     #   the line the coordinates are referencing (top, bottom, center...).
-    # @return       [Image]   The image.
+    # @return (see #initialize)
+    # @raise [CanvasError] If the line would go out of bounds.
     # @todo Add support for arbitrary lines, widths, and even basic anti-aliasing.
     def line(x0, y0, x1, y1, color, width: 1, anchor: :c)
       check_bounds(x0, y0)
@@ -211,7 +310,8 @@ module Gifenc
     # @param stroke [Integer] Index of the border color.
     # @param fill   [Integer] Index of the fill color (`nil` for no fill).
     # @param width  [Integer] Stroke width of the border in pixels.
-    # @return [Image] The image.
+    # @return (see #initialize)
+    # @raise [CanvasError] If the rectangle would go out of bounds.
     def rect(x, y, w, h, stroke, fill = nil, width: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
