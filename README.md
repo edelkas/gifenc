@@ -12,9 +12,9 @@ Currently, the specs are almost fully supported for encoding. Decoding is not ye
 
 Consider the following GIF and the variation next to it. They already showcase most of the main elements of the format, including global and local color tables, transparency, animation, and different disposal methods. It also makes use of some basic drawing methods:
 
-<p align="center">
-![A first GIF example](res/first_a.gif)
-![A first GIF example](res/first_b.gif)
+<p style="text-align:center">
+<img src="res/first_a.gif">
+<img src="res/first_b.gif">
 </p>
 
 The code to generate the first version with `Gifenc` is the following:
