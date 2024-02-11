@@ -17,6 +17,7 @@
 - Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)
+- Drawing: Grid, geometric shapes (e.g. ellipses)
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT, or at least, have
   a warning when that is done, and a hard switch that is needed to enable not having
@@ -47,3 +48,23 @@
   the palette for that.
 - When we finish the README, add links to the different sections in the First Example.
 - Write up a Wiki on Github.
+- Add constant to specify whether transparency should be used by default. Perhaps
+  the default value in trans_color should then be something else (e.g. -1), which
+  means to use the default, whereas nil means to disable it. Alternatively, use
+  another variable, "transparency", whose default value is this constant.
+- Perhaps make general Gifenc class variables (using @@) so that those defaults
+  can be configured at runtime with getters and setters (e.g. default color).
+- Add a Canvas class, that takes care of actual pixel manipulations, which can
+  have either color indices or actual colors. Then, Image would inherit (or sub-
+  class) Canvas, but we could use Canvas with raw colors and then convert to an
+  Image by fitting a Color Table.
+- Perhaps even have 2 classes, one that implements the stuff that works for both
+  palette mode and color mode, such as drawing, and another that only works in
+  actual color mode, such as darkening colors. The first class would probably
+  inherit from the second one.
+- Dithering
+- Layered image support
+- Arbitrary quantizators (e.g. you can specify bit-depth for each channel, such
+  as 3, 3, 2), and then shortcuts for common ones.
+- Color spaces (sRGB, linear, etc)
+- Improve structure of the TODO

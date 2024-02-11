@@ -3,7 +3,7 @@
 A pure Ruby library with no external dependencies that allows to encode, decode and edit GIFs. Its main goals are to:
 
 * Support the full GIF [specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt) for both encoding and decoding.
-* Have a decent suite of editing functionalities, so that the need for external tools is eluded as much as possible.
+* Have a decent suite of editing functionalities, so that the need for external tools is avoided as much as possible.
 * Have a succint and comfortable syntax to use.
 
 Currently, the specs are almost fully supported for encoding. Decoding is not yet available, and the editing methods are very limited.
@@ -46,15 +46,17 @@ end
 gif.save('test.gif')
 ```
 
-Let's see a step-by-step overview, see the following sections for an in-depth explanation of the actual details for each of the topics involved.
-1. The first thing we do is create two **Color Tables**, one with red shades, and another with green shades. Since GIF is an indexed image format, it can only use colors on these predefined palettes of at most 256 colors. `Gifenc` comes equipped with several default ones, but you can build your own, and operate with them.
+Let's see a step-by-step overview, refer to the following sections for an in-depth explanation of the actual details for each of the topics involved.
+1. The first thing we do is create two **Color Tables**, one with red shades, and another with green shades. Since GIF is an indexed image format, it can only use colors from predefined palettes of at most 256 colors. `Gifenc` comes equipped with several default ones, but you can build your own, and operate with them.
 2. We create the GIF object. We select the red color table to be the **GCT** (_Global Color Table_), which is used for all frames that do not contain an explicit **LCT** (_Local Color Table_). We also set the GIF to loop indefinitely.
-3. We create the first frame, this will act as the background. We use the green color table as LCT for this frame. We set a few attributes, such as the default color of the canvas, the length of the frame, and the color used for transparency. We draw a sequence of centered green squares, they will help see the transparency of the next frames.
-4. Now, we create a sequence of frames, each of them being a smaller square located at an offset of the canvas. Since they have no LCT, they will use the GCT, and will thus be red. We draw a smaller square in their center with the transparent color, the background will show through this hole in the GIF.
-5. Export the GIF to a file, and voilà, we're done!
+3. We create the first frame, this will act as the background. We use the green color table as LCT for this frame. We set a few attributes, such as the default color of the canvas, the length of the frame, and the color used for transparency. We draw a sequence of centered green squares, they will help to see the transparency of the next frames.
+4. Now, we create a sequence of frames, each of them being a small square located at an offset of the canvas. Since they have no LCT, they will use the GCT, and will thus be red. We draw an even smaller square in their center with the transparent color, the background will then show through these hole in the GIF.
+5. Finally, we export the GIF to a file, and voilà, we're done!
 
+Producing the second variation is surprisingly simple. It suffices to add the option `disposal: 3` to the frames (except for the background). More on this later.
 
 ## Resources
+
 The following are a few of the excellent resources one can find on the net to get a deep understanding of the GIF file format.
 - [What's in a GIF](http://www.matthewflickinger.com/lab/whatsinagif/): Comprehensive description of the GIF file format, LZW compression, and other related aspects. Illustrated with diagrams and examples. Includes online tools to explore GIF contents.
 - [Manipulating GIF Color Tables](https://www.codeproject.com/Articles/1042433/Manipulating-GIF-Color-Tables): Detailed breakdown of the format, including a very nice diagram. Develops an open source GIF manipulation tool in C#.
