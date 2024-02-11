@@ -31,7 +31,7 @@ module Gifenc
 
   # Default color _index_ to use as transparent for those images which have
   # transparency enabled but which don't have an explicit transparent color set.
-  DEFAULT_TRANS_COLOR = 0
+  DEFAULT_TRANS_COLOR = 0xFF
 
   # Default value of the deprecated user input flag in graphic control extensions.
   DEFAULT_USER_INPUT = false

@@ -17,10 +17,25 @@
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)
 - In the bound checks for line/rect we're not taking the width into consideration
-- Enforce that we either have a GCT or every frame has an LCT
+- Enforce that we either have a GCT or every frame has an LCT, or at least, have
+  a warning when that is done, and a hard switch that is needed to enable not having
+  any tables, for those that really know what they're doing (mention this in the
+  docs)
 - Should we send indices or colors to Image.get, Image.set, Image.[], Image.[]= ???
 - What happens when an image is placed at least partially out of bounds with respect
   to the logical screen? Does it get cropped, is the GIF corrupt? Perhaps we should
   either raise an exception here or crop the image, or let the user choose between
   these two policies.
+- What happens if some frames have GCE and some don't?
+- Should the transparency index appear when the transparency bit is not set?
 - Add Rake tests
+- Add exception handling to most functions
+- Add logging (log, warn, err, lex...)
+- The depth parameter has to do with the GIF, not with the color table, move it
+  and adapt the docs and everything else
+- If the GIF has multiple images but no GCE, decoders appear to animate them
+  by default with the default delay of 10
+- Decoder: When we finish parsing a block, and we stumble upon a byte that we
+  dont' recognize (it's not the label of any recognizable block), keep parsing
+  until we find one that we do, and try to continue from there. If it fails,
+  consider that padding and give out warning.

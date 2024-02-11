@@ -5,9 +5,8 @@ module Gifenc
   # may appear in any of its images. The color table can be *global* (GCT), in
   # which case it applies to all images, and *local* (LCT), in which case it
   # applies only to the subsequent image, overriding the global one, if present.
-  # Technically, both are optional according to the standard, but we enforce
-  # having an LCT if no GCT is present, since otherwise it's up to the decoder to
-  # choose how to render the colors.
+  # Technically, both are optional according to the standard, but this breaks
+  # many decoders, so by default we enforce having an LCT if no GCT is present.
   #
   # A color table can have a size of at most 8 bits, i.e., at most 256 colors,
   # and it's always a power of 2, even if there's leftover space or empty slots.
@@ -77,7 +76,7 @@ module Gifenc
     # Encode the color table as it will appear in the GIF.
     # @param stream [IO] The stream to output the encoded color table into.
     def encode(stream)
-      @colors.each{ |c|
+      @colors.take(size).each{ |c|
         c = 0 if !c
         stream << [c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF].pack('C3')
       }
@@ -262,7 +261,7 @@ module Gifenc
     # Find the actual bit size of the color table.
     # @private
     def bit_size
-      [Math.log2(last + 1).ceil, 1].max
+      [Math.log2((last || 0) + 1).ceil, 1].max
     end
 
     # Real size of the table that will be used by the encoder. The size is the

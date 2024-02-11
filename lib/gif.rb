@@ -147,7 +147,9 @@ module Gifenc
 
       # Logical Screen Descriptor
       stream << [@width, @height].pack('S<2')
-      stream << [@gct.global_flags].pack('C') if @gct
+      flags = 0
+      flags |= @gct.global_flags if @gct
+      stream << [flags].pack('C')
       stream << [@bg, @ar].pack('C2')
 
       # Global Color Table
@@ -184,6 +186,29 @@ module Gifenc
       else
         @extensions << Extension::Netscape.new(value == -1 ? 0 : value)
       end
+    end
+
+    # Shortcut to not loop the GIF at all. This sets the loop count to 0 and
+    # removes Netscape Extension. The name of the method comes from the
+    # fact that this is typically done to make a still image instead of an
+    # animation, but if multiple frames are added, they will be played back once.
+    # Crucially, if we want to make a layered image (i.e., a still image with
+    # multiple tiles and no delay between them, a common trick to achieve more
+    # than 256 colors in a GIF image), it's usually mandatory to do this, as most
+    # decoders will actually assume multiple images in a GIF are animation frames,
+    # rather than layers of a still image, if the Netscape Extension is present.
+    # @return [Gif] The GIF object.
+    def still
+      self.loops = 0
+      self
+    end
+
+    # Shortcut to loop the GIF indefinitely. This sets the loops count to -1,
+    # which translates to 0 in the Netscape Extension.
+    # @return [Gif] The GIF object.
+    def cycle
+      self.loops = -1
+      self
     end
 
     # Encode and write the GIF to a string.

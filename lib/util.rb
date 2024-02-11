@@ -9,7 +9,7 @@ module Gifenc
     # compressed pixel data or extension data) is stored in GIFs.
     # @param data [String] Data to lay into sub-blocks.
     # @return [String] The resulting data in block fashion.
-    def blockify(data)
+    def self.blockify(data)
       return BLOCK_TERMINATOR if data.size == 0
       ff = "\xFF".b.freeze
       off = 0
@@ -29,7 +29,7 @@ module Gifenc
     # Recover original data from inside the 256-byte blocks used by GIF.
     # @param data [String] Data in blocks to read.
     # @return [String] Original raw data.
-    def deblockify(data)
+    def self.deblockify(data)
       out = ""
       size = data[0].ord
       off = 0

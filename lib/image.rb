@@ -120,7 +120,7 @@ module Gifenc
     # @todo Add support for interlaced images.
     def encode(stream)
       # Optional Graphic Control Extension before image data
-      stream << @gce.encode(stream) if @gce
+      @gce.encode(stream) if @gce
 
       # Image descriptor
       stream << ','
@@ -133,9 +133,9 @@ module Gifenc
       @lct.encode(stream) if @lct
 
       # LZW-compressed image data
-      min_bits = @lct ? @lct.bit_size : 8
+      min_bits = 8 #@lct ? @lct.bit_size : 8
       stream << min_bits.chr
-      lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits)
+      lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits, verbosity: :minimal)
       stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
     end
 

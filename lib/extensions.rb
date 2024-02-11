@@ -20,8 +20,8 @@ module Gifenc
     # @param stream [IO] Stream to write the data to.
     def encode(stream)
       stream << EXTENSION_INTRODUCER
-      stream << @label # Extension label
-      stream << body   # Extension content
+      stream << @label.chr # Extension label
+      stream << body       # Extension content
     end
 
     # This extension precedes a *single* image and controls several of its rendering
@@ -227,7 +227,7 @@ module Gifenc
         code = @code[0...3].ljust(3, "\x00")
 
         # Build string
-        "\x0B" + id + code + blockify(data)
+        "\x0B" + id + code + Util.blockify(data)
       end
     end
 
