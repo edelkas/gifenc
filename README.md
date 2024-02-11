@@ -1,16 +1,20 @@
 # gifenc
 
-A pure Ruby library that allows to encode and decode GIFs, with the aim to eventually implement the full GIF [specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt).
+A pure Ruby library with no external dependencies that allows to encode, decode and edit GIFs. Its main goals are to:
+
+* Support the full GIF [specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt) for both encoding and decoding.
+* Have a decent suite of editing functionalities, so that the need for external tools is eluded as much as possible.
+* Have a succint and comfortable syntax to use.
+
+Currently, the specs are almost fully supported for encoding. Decoding is not yet available, and the editing methods are very limited.
 
 ## A first example
 
 Consider the following GIF and the variation next to it. They already showcase most of the main elements of the format, including global and local color tables, transparency, animation, and different disposal methods. It also makes use of some basic drawing methods:
 
-<p style="text-align:center">
-
+<p align="center">
 ![A first GIF example](res/first_a.gif)
 ![A first GIF example](res/first_b.gif)
-
 </p>
 
 The code to generate the first version with `Gifenc` is the following:
