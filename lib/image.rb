@@ -340,12 +340,12 @@ module Gifenc
       if x0 == x1    # Vertical
         y0, y1 = y1, y0 if y0 > y1
         for y in (y0 .. y1)
-          @pixels[y * width + x0] = color
+          @pixels[y * @width + x0] = color
         end
       elsif y0 == y1 # Horizontal
         x0, x1 = x1, x0 if x0 > x1
         for x in (x0 .. x1)
-          @pixels[y0 * width + x] = color
+          @pixels[y0 * @width + x] = color
         end
       end
 
@@ -372,7 +372,7 @@ module Gifenc
       if fill
         for x in (x0 .. x1)
           for y in (y0 .. y1)
-            @pixels[y * width + x] = fill
+            @pixels[y * @width + x] = fill
           end
         end
       end

@@ -93,7 +93,7 @@ module Gifenc
       #         animating over a fixed background.
       #
       # Note that support for all disposal methods might be incomplete in some
-      # pieces of software.
+      # pieces of software. The most limited programs only support method 1.
       # @return [Integer] Disposal method.
       attr_accessor :disposal
 
@@ -128,7 +128,7 @@ module Gifenc
       def initialize(
           delay:        DEFAULT_DELAY,
           disposal:     DEFAULT_DISPOSAL,
-          trans_color:  DEFAULT_TRANS_COLOR,
+          trans_color:  nil,
           user_input:   DEFAULT_USER_INPUT
         )
         super(LABEL)
@@ -136,7 +136,7 @@ module Gifenc
         @disposal     = (0..7).include?(disposal) ? disposal : DEFAULT_DISPOSAL
         @user_input   = user_input
         @delay        = (0..0xFFFF).include?(delay) ? delay : DEFAULT_DELAY
-        @trans_color  = (0..0xFF).include?(trans_color) ? trans_color : DEFAULT_TRANS_COLOR
+        @trans_color  = (0..0xFF).include?(trans_color) ? trans_color : nil
       end
 
       # Encode the extension block as a 6-byte binary string, as it will appear
@@ -150,12 +150,13 @@ module Gifenc
           ((@user_input    ? 1 : 0)        & 0b1  ) << 1 |
           ((!!@trans_color ? 1 : 0)        & 0b1  )
         ].pack('C')
+        trans_color = !@trans_color ? DEFAULT_TRANS_COLOR : @trans_color
 
         # Main params
-        str = "\x04"                         # Block size (always 4 bytes)
-        str += flags                         # Packed fields
-        str += [@delay.to_i].pack('S<')      # Delay time
-        str += [@trans_color.to_i].pack('C') # Transparent index
+        str = "\x04"                   # Block size (always 4 bytes)
+        str += flags                   # Packed fields
+        str += [@delay].pack('S<')     # Delay time
+        str += [trans_color].pack('C') # Transparent index
         str += BLOCK_TERMINATOR
 
         str

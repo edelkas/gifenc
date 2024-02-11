@@ -14,6 +14,7 @@
   that updates this inverted hash after every modification.
 - Methods to modify the palette: darken, lighten (in fact, interpolate with respect
   to any color), grayscale, quantization, color shifting, etc.
+- Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)
 - In the bound checks for line/rect we're not taking the width into consideration
@@ -39,3 +40,10 @@
   dont' recognize (it's not the label of any recognizable block), keep parsing
   until we find one that we do, and try to continue from there. If it fails,
   consider that padding and give out warning.
+- Rename "trans_color": transparent, trans...?
+- If a color is used which is not in the palette, unexpected results may ensue.
+  This includes the trans_color, which means we should assign a valid palette color
+  whenever we want to use transparency, which means we should reserve one slot in
+  the palette for that.
+- When we finish the README, add links to the different sections in the First Example.
+- Write up a Wiki on Github.
