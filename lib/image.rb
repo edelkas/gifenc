@@ -81,8 +81,19 @@ module Gifenc
     # @param lct [ColorTable] Add a Local Color Table to this image, overriding
     #   the global one.
     # @return [Image] The image.
-    def initialize(width, height, x = 0, y = 0, color: 0, gce: nil, delay: nil,
-      trans_color: nil, disposal: nil, interlace: false, lct: nil)
+    def initialize(
+        width,
+        height,
+        x = 0,
+        y = 0,
+        color:       DEFAULT_COLOR,
+        gce:         nil,
+        delay:       nil,
+        trans_color: nil,
+        disposal:    nil,
+        interlace:   DEFAULT_INTERLACE,
+        lct:         nil
+      )
       # Image attributes
       @width     = width
       @height    = height
@@ -96,18 +107,20 @@ module Gifenc
       @pixels    = [@color] * (width * height)
 
       # Extended features
-      @gce = gce ? gce.dup : Extension::GraphicControl.new
-      @gce.delay        = delay       if delay
-      @gce.trans_color  = trans_color if trans_color
-      @gce.disposal     = disposal    if disposal
+      if gce || delay || trans_color || disposal
+        @gce = gce ? gce.dup : Extension::GraphicControl.new
+        @gce.delay       = delay       if delay
+        @gce.trans_color = trans_color if trans_color
+        @gce.disposal    = disposal    if disposal
+      end
     end
 
     # Encode the image data to GIF format and write it to a stream.
     # @param stream [IO] Stream to write the data to.
     # @todo Add support for interlaced images.
     def encode(stream)
-      # Optional extensions go before the image data
-      stream << @extensions.each{ |e| e.encode(stream) }
+      # Optional Graphic Control Extension before image data
+      stream << @gce.encode(stream) if @gce
 
       # Image descriptor
       stream << ','

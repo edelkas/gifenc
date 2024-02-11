@@ -12,33 +12,111 @@ module Gifenc
     # 1-byte block indicating the termination of the GIF data stream.
     TRAILER = ';'
 
+    # The width of the GIF's logical screen, i.e., its canvas. To resize it, use
+    # the {#resize} method.
+    # @return [Integer] Width of the logical screen in pixels.
+    # @see #resize
+    attr_reader :width
+
+    # The height of the GIF's logical screen, i.e., its canvas. To resize it, use
+    # the {#resize} method.
+    # @return [Integer] Width of the logical screen in pixels.
+    # @see #resize
+    attr_reader :height
+
+    # The Global Color Table. This represents the default palette of all the
+    # images in the GIF. In other words, all colors in all images are indexed in
+    # this table, unless a local table is explicitly provided for an image, in
+    # which case it overrides the global one. A color table may contain up to
+    # 256 colors. See {ColorTable} for more details and a list of default palettes.
+    # @note Changing this table _after_ images have already been created with it
+    #   will NOT update their color indices, which will thus corrupt them in the
+    #   final encoded GIF.
+    # @return [ColorTable] The global color table.
+    attr_accessor :gct
+
+    # The default color of the GIF's images. This color is used to initialize
+    # new blank images, as well as to pad images when they are resized to a bigger
+    # size. This can be overriden individually for each image.
+    # @return [Integer] Index of the default image color.
+    attr_accessor :color
+
+    # The default delay to use between images, in 1/100ths of a second. See
+    # {Extension::GraphicControl#delay} for details about its implementation.
+    # This can be overriden individually for each image.
+    # @return [Integer] Delay beween frames.
+    attr_accessor :delay
+
+    # The index of the default color to use as transparent. For details about
+    # how transparency works in GIF files, see {Extension::GraphicControl#trans_color}.
+    # This can be overriden individually for each image.
+    # @return [Integer] Index of the default transparent color.
+    attr_accessor :trans_color
+
+    # The default disposal method to use for every image in the GIF. The disposal
+    # method handles how each frame is disposed of before displaying the next one.
+    # See {Extension::GraphicControl#disposal} for the specific details.
+    # This can be overriden individually for each image.
+    # @return [Integer] Default frame disposal method.
+    attr_accessor :disposal
+
+    # The amount of times to loop the GIF. Must be a number between -1 and 65535,
+    # where -1 means to loop indefinitely. Internally, any non-zero number will
+    # result in the creation of a Netscape Extension. Note that many programs
+    # do not support finite loop counts, instead rendering all GIFs as either
+    # fully static or looping indefinitely.
+    # @return [Integer] GIF loop count.
+    attr_reader :loops
+
+    # Index of the background color in the Global Color Table. This is the color
+    # of the exposed parts of the canvas, i.e., those not covered by any image.
+    # @note This field is ignored by most decoders, which instead render the
+    #   exposed parts of the canvas transparently.
+    # @return [Integer] Index of the background color.
+    attr_accessor :bg
+
+    # Aspect ratio of the pixels. If provided (`ar > 0`), the aspect ratio is
+    # calculated as (ar + 15) / 64, which allows for ratios roughly between 1:4
+    # and 4:1 in increments of 1/64th. `0` means square pixels.
+    # @note This field is ignored by most decoders, which instead render all
+    #   pixels square.
+    # @return [Integer] Pixel aspect ratio.
+    attr_accessor :ar
+
+    # The array of images present in the GIF.
+    # @return [Array<Image>] Image list.
+    attr_accessor :images
+
+    # The array of global extensions present in the GIF. This may include
+    # Application Extensions, Comment Extensions, etc. Other extensions, like
+    # the Graphic Control Extension, are local to each image, and are set there.
+    # @return [Array<Extension>] Extension list.
+    attr_accessor :extensions
+
     # Creates a new GIF object.
-    # @param width  [Integer] Width of the logical screen (canvas) in pixels.
-    # @param height [Integer] Height of the logical screen (canvas) in pixels.
-    # @param gct    [ColorTable] The global color table of the GIF. This
-    #   represents the default palette of all the images in the GIF, and contains
-    #   the colors that can be used in them (at most 256). Each image can
-    #   override this with a local color table. See {ColorTable} for more details
-    #   and a list of default palettes.
-    # @param loops  [Integer] Amount of times (0-65535) to loop the GIF.
-    #   (`-1` = loop indefinitely).
-    # @param delay  [Integer] Default delay between frames, in 1/100ths of a second.
-    #   This setting can be overridden for each individual frame, thus obtaining
-    #   a variable framerate. Beware that most programs do not support the
-    #   smallest delays (e.g. <5).
-    # @param fps    [Integer] Frames per second of the GIF. This setting will
-    #   only be used to approximate the real delay if **no** explicit delay was
-    #   given.
-    # @param bg     [Integer] Index of the background color in the Global Color
-    #   Table. This should be the color of the parts of the canvas not covered
-    #   by any image. **Note**: This field is ignored by most decoders, which
-    #   instead render the background transparent.
-    # @param ar     [Integer] Aspect ratio of the pixels. If provided (`ar > 0`),
-    #   the aspect ratio is calculated as (ar + 15) / 64, which allows for ratios
-    #   roughly between 1:4 and 4:1 in increments of 1/64th. `0` means square
-    #   pixels. **Note**: This field is ignored by most decoders, which instead
-    #   just render all pixels square.
-    def initialize(width, height, gct: nil, loops: -1, delay: nil, fps: 10, bg: 0, ar: 0)
+    # @param width       [Integer]    Width of the logical screen (canvas) in pixels (see {#width} and {#resize}).
+    # @param height      [Integer]    Height of the logical screen (canvas) in pixels (see {#height} and {#resize}).
+    # @param gct         [ColorTable] The global color table of the GIF (see {#gct}).
+    # @param color       [Integer]    Default frame color (see {#color}).
+    # @param delay       [Integer]    Default delay between frames (see {#delay}).
+    # @param trans_color [Integer]    Default transparent color (see {#trans_color}).
+    # @param disposal    [Integer]    Default disposal method (see {#disposal}).
+    # @param loops       [Integer]    Amount of times to loop the GIF (see {#loops}).
+    # @param bg          [Integer]    Background color (see {#bg}).
+    # @param ar          [Integer]    Pixel aspect ratio (see {#ar}).
+    def initialize(
+        width,
+        height,
+        gct:         nil,
+        color:       DEFAULT_COLOR,
+        interlace:   DEFAULT_INTERLACE,
+        delay:       nil,
+        trans_color: nil,
+        disposal:    nil,
+        loops:       DEFAULT_LOOPS,
+        bg:          DEFAULT_BACKGROUND,
+        ar:          DEFAULT_ASPECT_RATIO
+      )
       # GIF attributes
       @width  = width
       @height = height
@@ -46,49 +124,19 @@ module Gifenc
       @ar     = ar
       @gct    = gct
 
+      # Default image attributes
+      @color       = color
+      @interlace   = interlace
+      @delay       = delay
+      @trans_color = trans_color
+      @disposal    = disposal
+
       # GIF content data
       @images     = []
       @extensions = []
 
-      # Extension params
-      @loops = loops
-      @delay = delay
-      @fps   = fps
-
       # If we want the GIF to loop, then add the Netscape Extension
-      if @loops != 0
-        loops = @loops == -1 ? 0 : @loops
-        @extensions << Extension::Netscape.new(loops)
-      end
-    end
-
-    # Insert a _new_ or _preexisting_ image at the specified index of the image
-    # list. If the image parameter is specified, that image will be inserted
-    # into the GIF's image list, and the other parameters will be ignored. If
-    # left unspecified, then a new image will be created according to all the
-    # other parameters. The default value for these parameters are the GIF's
-    # defaults.
-    # @param i [Integer] The index to insert the image at.
-    # @param image [Image] The image to insert. Don't specify it to create a
-    #   new image with the desired parameters. The next parameters are only
-    #   relevant if a new image is created.
-    # @param width [Integer] The width of the new image in pixels.
-    # @param height [Integer] The height of the new image in pixels.
-    # @return [Image] The inserted image.
-    # @raise [GifError] If the specified index is out of range.
-    def insert(i, image = nil, width: @width, height: @height, x: 0, y: 0,
-      color: @bg, delay: @delay, trans_color: @bg, interlace: false, lct: nil)
-      range = (-@images.size - 1 .. @images.size)
-      raise GifError, "Cannot insert image into specified index, must be\
-        between #{range.min} and #{range.max}." if !range.cover?(i)
-
-      image = Image.new(
-        width, height, x, y, color: color, delay: delay,
-        trans_color: trans_color, interlace: interlace, lct: lct
-      ) unless image
-
-      @images.insert(i, image)
-      image
+      self.loops = loops
     end
 
     # Encode all the data as a GIF file and write it to a stream.
@@ -116,6 +164,26 @@ module Gifenc
     rescue => e
       lex(e, 'Failed to encode GIF')
       nil
+    end
+
+    # Change the dimensions of the GIF's logical screen, i.e, its canvas.
+    # @todo We should probably test what happens when images are out of the
+    #   logical screen's bounds, and perform integrity checks here if necessary,
+    #   perhaps cropping the images present in this GIF.
+    def resize(width, height)
+      @width = width
+      @height = height
+    end
+
+    # Overload for the loop count so that we can appropriately create or delete
+    # the required Netscape Extension.
+    def loops=(value)
+      raise GifError, "Loop count must be between -1 and 65535" if !value.between?(-1, 65535)
+      if value == 0
+        @extensions.reject!{ |e| e.is_a?(Extension::Netscape) }
+      else
+        @extensions << Extension::Netscape.new(value == -1 ? 0 : value)
+      end
     end
 
     # Encode and write the GIF to a string.

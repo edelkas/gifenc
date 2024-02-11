@@ -91,6 +91,7 @@ module Gifenc
       # * `3` : Restore to previous. The previous undisposed image will be
       #         restored, and the next one will be drawn over it. Useful for
       #         animating over a fixed background.
+      #
       # Note that support for all disposal methods might be incomplete in some
       # pieces of software.
       # @return [Integer] Disposal method.
@@ -118,23 +119,24 @@ module Gifenc
       #   dispose of this image before displaying the next one (see {#disposal}).
       # @param trans_color [Integer] Color table index (0-255) of the color that
       #   should be used as the transparent color. The transparent color maintains
-      #   whatever color was present in that pixel before rendering this image.
+      #   whatever color was present in that pixel before rendering this image
+      #   (see {#trans_color}).
       # @param user_input [Boolean] Whether or not user input is expected to
       #   continue rendering the subsequent GIF images (mostly deprecated flag).
       # @return [GraphicControl] The newly created Graphic Control
       #   Extension block.
       def initialize(
-          delay:        10,
-          disposal:     DISPOSAL_NONE,
-          trans_color:  nil,
-          user_input:   false
+          delay:        DEFAULT_DELAY,
+          disposal:     DEFAULT_DISPOSAL,
+          trans_color:  DEFAULT_TRANS_COLOR,
+          user_input:   DEFAULT_USER_INPUT
         )
         super(LABEL)
 
-        @disposal     = (0...8).include?(disposal) ? disposal : DISPOSAL_NONE
+        @disposal     = (0..7).include?(disposal) ? disposal : DEFAULT_DISPOSAL
         @user_input   = user_input
-        @delay        = delay & 0xFFFF
-        @trans_color  = (trans_color || 0x00) & 0xFF
+        @delay        = (0..0xFFFF).include?(delay) ? delay : DEFAULT_DELAY
+        @trans_color  = (0..0xFF).include?(trans_color) ? trans_color : DEFAULT_TRANS_COLOR
       end
 
       # Encode the extension block as a 6-byte binary string, as it will appear
@@ -143,10 +145,10 @@ module Gifenc
       def body
         # Packed flags
         flags = [
-          (0                            & 0b111) << 5 |
-          ((@disposal || DISPOSAL_NONE) & 0b111) << 2 |
-          ((@user_input    ? 1 : 0)     & 0b1  ) << 1 |
-          ((!!@trans_color ? 1 : 0)     & 0b1  )
+          (0                               & 0b111) << 5 |
+          ((@disposal || DEFAULT_DISPOSAL) & 0b111) << 2 |
+          ((@user_input    ? 1 : 0)        & 0b1  ) << 1 |
+          ((!!@trans_color ? 1 : 0)        & 0b1  )
         ].pack('C')
 
         # Main params

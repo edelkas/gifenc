@@ -18,8 +18,6 @@
 - Drawing: General lines (diagonal, width > 1, anchor points...)
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT
-- Add attributes (attr_accessor...) to many classes (e.g. Gif, Image...)
-- Add more tags to the documentation (e.g. @raise, @todo...)
 - Should we send indices or colors to Image.get, Image.set, Image.[], Image.[]= ???
 - What happens when an image is placed at least partially out of bounds with respect
   to the logical screen? Does it get cropped, is the GIF corrupt? Perhaps we should

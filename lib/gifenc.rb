@@ -18,6 +18,37 @@ module Gifenc
 
   # Restore to the previous undisposed frame before displaying the next one.
   DISPOSAL_PREV = 3
+
+  # Default disposal method to use when it hasn't been explicitly specified.
+  DEFAULT_DISPOSAL = DISPOSAL_NONE
+
+  # Default frame delay, in 1/100ths of a second, to use when an animated GIF
+  # without explicit delay is created.
+  DEFAULT_DELAY = 10
+
+  # Default color _index_ to initialize blank images to.
+  DEFAULT_COLOR = 0
+
+  # Default color _index_ to use as transparent for those images which have
+  # transparency enabled but which don't have an explicit transparent color set.
+  DEFAULT_TRANS_COLOR = 0
+
+  # Default value of the deprecated user input flag in graphic control extensions.
+  DEFAULT_USER_INPUT = false
+
+  # Default number of times to loop GIF's (`-1` = indefinitely).
+  DEFAULT_LOOPS = -1
+
+  # Whether to use image interlacing by default.
+  DEFAULT_INTERLACE = false
+
+  # Default background color (only for exposed parts of the canvas). Note that
+  # this setting is actually ignored by most decoders.
+  DEFAULT_BACKGROUND = 0
+
+  # Default pixel aspect ratio (`0` = square). Note that this setting is ignored
+  # by most decoders.
+  DEFAULT_ASPECT_RATIO = 0
 end
 
 require_relative 'util.rb'
