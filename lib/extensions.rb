@@ -62,7 +62,8 @@ module Gifenc
     #
     # Note that, in reality, most software does not perfectly conform to this
     # standard. Notably, the user input flag is mostly ignored, and very small
-    # delays are changed to a higher value (see {#delay}).
+    # delays are changed to a higher value (see {#delay}). Also, disposal methods
+    # 2 and 3 are sometimes not supported either.
     class GraphicControl < Extension
 
       # Label identifying a Graphic Control Extension block.

@@ -163,9 +163,6 @@ module Gifenc
 
       # Trailer
       stream << TRAILER
-    rescue => e
-      lex(e, 'Failed to encode GIF')
-      nil
     end
 
     # Change the dimensions of the GIF's logical screen, i.e, its canvas.
@@ -180,7 +177,7 @@ module Gifenc
     # Overload for the loop count so that we can appropriately create or delete
     # the required Netscape Extension.
     def loops=(value)
-      raise GifError, "Loop count must be between -1 and 65535" if !value.between?(-1, 65535)
+      raise Exception::GifError, "Loop count must be between -1 and 65535" if !value.between?(-1, 65535)
       if value == 0
         @extensions.reject!{ |e| e.is_a?(Extension::Netscape) }
       else

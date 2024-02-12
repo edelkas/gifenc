@@ -105,10 +105,10 @@ module Gifenc
     # @param colors [Array<Integer>] The new list of colors.
     # @return (see #initialize)
     # @note This method may change color indexes.
-    # @raise [ColorTableError] If there are too many colors (>256).
+    # @raise [Exception::ColorTableError] If there are too many colors (>256).
     def set(colors)
       if colors.size > MAX_SIZE
-        raise ColorTableError, "Cannot build color table, the supplied color list\
+        raise Exception::ColorTableError, "Cannot build color table, the supplied color list\
           has more than #{MAX_SIZE} entries."
       end
       colors.each_with_index{ |c, i| @colors[i] = !!c ? c & 0xFFFFFF : nil }
@@ -125,7 +125,7 @@ module Gifenc
       unique_colors = Set.new
       for i in (0 ... MAX_SIZE)
         next if !@colors[i]
-        if @colors[i].in?(unique_colors)
+        if unique_colors.include?(@colors[i])
           @colors[i] = nil
         else
           unique_colors.add(@colors[i])
@@ -175,18 +175,18 @@ module Gifenc
     # @param order [Array<Integer>] The permutation according to which to rearrange.
     # @return (see #initialize)
     # @see #cycle
-    # @raise [ColorTableError] If the permutation is invalid (e.g. not of the
+    # @raise [Exception::ColorTableError] If the permutation is invalid (e.g. not of the
     #   right length, or not containing the right indices), or if any color was
     #   not found in the color table.
     def permute(*colors, order: [])
       # Ensure permutation makes sense for the provided colors
       if order.sort != colors.size.times.to_a || order.uniq.size != order.size
-        raise ColorTableError, "Cannot permute colors: Permutation is invalid."
+        raise Exception::ColorTableError, "Cannot permute colors: Permutation is invalid."
       end
 
       # Ensure provided colors are in the table
       if !(colors - @colors).empty?
-        raise ColorTableError, "Cannot permute colors: Color not found."
+        raise Exception::ColorTableError, "Cannot permute colors: Color not found."
       end
 
       mapping = colors.each_with_index.map{ |c, i| [c, colors[order[i]]] }.to_h
@@ -202,7 +202,7 @@ module Gifenc
     # @param step [Integer] The positive or negative step to take in the shift.
     # @return (see #initialize)
     # @see #permute
-    # @raise [ColorTableError] If any color was not found in the color table.
+    # @raise [Exception::ColorTableError] If any color was not found in the color table.
     def cycle(*colors, step: 1)
       permutation = colors.times.map{ |i| (i - step) % colors.size }
       permute(*colors, order: permutation)
@@ -221,12 +221,12 @@ module Gifenc
     # Insert new colors into the color table.
     # @param colors [Integers] The colors to add.
     # @return (see #initialize)
-    # @raise [ColorTableError] If there's not enough space in the table to add
+    # @raise [Exception::ColorTableError] If there's not enough space in the table to add
     #   the new colors.
     def add(*colors)
       colors = (colors - @colors).compact.uniq
       if count + colors.size > MAX_SIZE
-        raise ColorTableError, "Cannot add colors to the color table:\
+        raise Exception::ColorTableError, "Cannot add colors to the color table:\
           Table over size limit (#{MAX_SIZE})."
       end
       colors.each{ |c| @colors[find_slot] = c & 0xFFFFFF }

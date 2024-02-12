@@ -21,4 +21,5 @@ Gem::Specification.new do |s|
     "documentation_uri" => 'https://www.rubydoc.info/gems/gifenc/',
     "changelog_uri"     => 'https://www.rubydoc.info/gems/gifenc/file/CHANGELOG.md'
   }
+  s.add_runtime_dependency('lzwrb')
 end

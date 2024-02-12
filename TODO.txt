@@ -17,7 +17,7 @@
 - Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
 - Drawing: General lines (diagonal, width > 1, anchor points...)
-- Drawing: Grid, geometric shapes (e.g. ellipses)
+- Drawing: Grid, geometric shapes (e.g. ellipses), patterns (like in Excel)...
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT, or at least, have
   a warning when that is done, and a hard switch that is needed to enable not having
@@ -67,4 +67,9 @@
 - Arbitrary quantizators (e.g. you can specify bit-depth for each channel, such
   as 3, 3, 2), and then shortcuts for common ones.
 - Color spaces (sRGB, linear, etc)
+- Have a bounding box attribute for an image that updates automatically every time
+  we draw something on it. At the end, after operating with the image, this should
+  contain the bounding box of everything that's been drawn, so that it can be
+  automatically cropped and offsetted in the logical screen with a function
+  before calling encode. This should all be optional of course.
 - Improve structure of the TODO
