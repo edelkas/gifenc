@@ -1,4 +1,4 @@
-require_relative 'lib/gifenc.rb'
+require 'gifenc'
 
 # Build a couple color tables
 reds = Gifenc::ColorTable.new(64.times.map{ |c| 4 * c << 16 | 0x40 } + [0])
@@ -15,7 +15,7 @@ end
 (0 ... 8).each do |y|
   (0 ... 8).each do |x|
     gif.images << Gifenc::Image.new(
-      14, 14, 16 * x + 1, 16 * y + 1, color: 8 * y + x, delay: 5, trans_color: 64, disposal: 3
+      14, 14, 16 * x + 1, 16 * y + 1, color: 8 * y + x, delay: 5, trans_color: 64
     ).rect(4, 4, 6, 6, 64, 64)
   end
 end

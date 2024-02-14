@@ -1,4 +1,3 @@
-require 'pry-byebug'
 # Gifenc is a pure Ruby library to encode, decode and edit GIF files. It aims
 # to eventually support the complete {file:docs/Specification.md specification}.
 # The Gifenc module serves as a namespace to encapsulate the functionality
@@ -52,8 +51,9 @@ module Gifenc
   DEFAULT_ASPECT_RATIO = 0
 end
 
-require_relative 'util.rb'
 require_relative 'errors.rb'
+require_relative 'util.rb'
+require_relative 'geometry.rb'
 require_relative 'color_table.rb'
 require_relative 'extensions.rb'
 require_relative 'image.rb'

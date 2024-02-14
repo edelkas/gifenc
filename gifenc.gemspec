@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
     tuned if you're interested!
   EOT
   s.authors     = ['edelkas']
-  s.files       = Dir['lib/**/*', 'README.md', '.yardopts']
+  s.files       = Dir['lib/**/*', 'README.md', 'docs/**/*', '.yardopts']
   s.homepage    = 'https://github.com/edelkas/gifenc'
   s.metadata = {
     "homepage_uri"      => 'https://github.com/edelkas/gifenc',
@@ -22,4 +22,5 @@ Gem::Specification.new do |s|
     "changelog_uri"     => 'https://www.rubydoc.info/gems/gifenc/file/CHANGELOG.md'
   }
   s.add_runtime_dependency('lzwrb')
+  s.extra_rdoc_files = Dir['README.md', 'docs/**/*']
 end

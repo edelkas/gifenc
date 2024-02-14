@@ -54,11 +54,18 @@ module Gifenc
     # @see #replace
     attr_reader :pixels
 
-    # Create a new image or frame.
+    # Create a new image or frame. The minimum information required is the
+    # width and height, which may be supplied directly, or by providing the
+    # bounding box, which also contains the offset of the image in the
+    # logical screen.
     # @param width [Integer] Width of the image in pixels.
     # @param height [Integer] Height of the image in pixels.
     # @param x [Integer] Horizontal offset of the image in the logical screen.
     # @param y [Integer] Vertical offset of the image in the logical screen.
+    # @param bbox [Array<Integer>] The image's bounding box, which is a tuple
+    #   in the form `[X, Y, W, H]`, where `[X, Y]` are the coordinates of its
+    #   upper left corner, and `[W, H]` are its width and height, respectively.
+    #   This can be provided instead of the first 4 parameters.
     # @param color [Integer] The initial color of the canvas.
     # @param gce [Extension::GraphicControl] An optional {Extension::GraphicControl
     #   Graphic Control Extension} for the image. This extension controls mainly
@@ -82,10 +89,11 @@ module Gifenc
     #   the global one.
     # @return [Image] The image.
     def initialize(
-        width,
-        height,
-        x = 0,
-        y = 0,
+        width      = nil,
+        height     = nil,
+        x          = nil,
+        y          = nil,
+        bbox:        nil,
         color:       DEFAULT_COLOR,
         gce:         nil,
         delay:       nil,
@@ -95,16 +103,28 @@ module Gifenc
         lct:         nil
       )
       # Image attributes
-      @width     = width
-      @height    = height
-      @x         = x
-      @y         = y
+      if bbox
+        @x      = bbox[0]
+        @y      = bbox[1]
+        @width  = bbox[2]
+        @height = bbox[3]
+      end
+      @width     = width  if width
+      @height    = height if height
+      @x         = x      if x
+      @y         = y      if y
       @lct       = lct
       @interlace = interlace
 
+      # Checks
+      raise Exception::CanvasError, "The width of the image must be supplied" if !@width
+      raise Exception::CanvasError, "The height of the image must be supplied" if !@height
+      @x = 0 if !@x
+      @y = 0 if !@y
+
       # Image data
-      @color     = color
-      @pixels    = [@color] * (width * height)
+      @color  = color
+      @pixels = [@color] * (@width * @height)
 
       # Extended features
       if gce || delay || trans_color || disposal
@@ -268,6 +288,15 @@ module Gifenc
       self
     end
 
+    # Returns the bounding box of the image. This is a tuple of the form
+    # `[X, Y, W, H]`, where `[X, Y]` are the coordinates of its upper left
+    # corner - i.e., it's offset in the logical screen - and `[W, H]` are
+    # its width and height, respectively, in pixels.
+    # @return [Array] The image's bounding box in the format described above.
+    def bbox
+      [@x, @y, @width, @height]
+    end
+
     # Get the value (color _index_) of a pixel fast (i.e. without bound checks).
     # See also {#get}.
     # @param x [Integer] The X coordinate of the pixel.
@@ -294,8 +323,8 @@ module Gifenc
     # @return [Array<Integer>] The list of colors, in the same order.
     # @raise [Exception::CanvasError] If any of the specified points is out of bounds.
     def get(points)
-      check_bounds(points.min_by(&:first)[0], points.min_by(&:last)[1])
-      check_bounds(points.max_by(&:first)[0], points.max_by(&:last)[1])
+      bound_check(points.min_by(&:first)[0], points.min_by(&:last)[1])
+      bound_check(points.max_by(&:first)[0], points.max_by(&:last)[1])
       points.map{ |p|
         @pixels[p[1] * width + p[0]]
       }
@@ -312,8 +341,8 @@ module Gifenc
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If any of the specified points is out of bounds.
     def set(points, colors)
-      check_bounds(points.min_by(&:first)[0], points.min_by(&:last)[1])
-      check_bounds(points.max_by(&:first)[0], points.max_by(&:last)[1])
+      bound_check(points.min_by(&:first)[0], points.min_by(&:last)[1])
+      bound_check(points.max_by(&:first)[0], points.max_by(&:last)[1])
       single = colors.is_a?(Integer)
       points.each_with_index{ |p, i|
         @pixels[p[1] * width + p[0]] = single ? color & 0xFF : colors[i] & 0xFF
@@ -341,13 +370,13 @@ module Gifenc
       if p2
         x1, y1 = p2
       else
-        x1, y1 = line_endpoint(
+        x1, y1 = Geometry.endpoint(
           point: p1, vector: vector,
           angle: angle, direction: direction, length: length
         )
       end
-      check_bounds(x0, y0)
-      check_bounds(x1, y1)
+      bound_check(x0, y0)
+      bound_check(x1, y1)
 
       # Normalize coordinates
       swap = (y1 - y0).abs > (x1 - x0).abs
@@ -395,14 +424,14 @@ module Gifenc
     # @param h      [Integer] Height of the rectangle in pixels.
     # @param stroke [Integer] Index of the border color.
     # @param fill   [Integer] Index of the fill color (`nil` for no fill).
-    # @param width  [Integer] Stroke width of the border in pixels.
+    # @param weight [Integer] Stroke width of the border in pixels.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
     def rect(x, y, w, h, stroke, fill = nil, weight: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
-      check_bounds(x0, y0)
-      check_bounds(x1, y1)
+      bound_check(x0, y0)
+      bound_check(x1, y1)
 
       # Fill rectangle, if provided
       if fill
@@ -422,49 +451,11 @@ module Gifenc
       self
     end
 
-    # Finds the bounding box of a set of points, i.e., the minimal rectangle
-    # containing all specified points.
-    # @private
-    def self.bbox(points, pad = 0)
-      x0 = points.min_by(&:first)[0] - pad
-      y0 = points.min_by(&:last)[1] - pad
-      x1 = points.max_by(&:first)[0] + pad
-      y1 = points.max_by(&:last)[1] + pad
-      [x0, y0, x1 - x0 + 1, y1 - y0 + 1]
-    end
-
-    # Finds the endpoint of a line given either:
-    # * The displacement vector
-    # * The unit direction and length
-    # * The angle and length
-    # @private
-    def self.line_endpoint(point: nil, vector: nil, angle: nil, direction: nil, length: nil)
-      raise Exception::CanvasError, "The line start must be specified." if !point
-      if vector
-        x1 = x0 + vector[0]
-        y1 = y0 + vector[1]
-      else
-        raise Exception::CanvasError, "Either the endpoint, the vector or the length must be provided." if !length
-        if direction
-          mod = Math.sqrt(direction[0] ** 2 + direction[1] ** 2)
-          direction[0] /= mod
-          direction[1] /= mod
-        else
-          raise Exception::CanvasError, "The angle must be specified if no direction is provided." if !angle
-          direction = [Math.cos(angle), Math.sin(angle)]
-        end
-        x1 = (point[0] + length * direction[0]).to_i
-        y1 = (point[1] + length * direction[1]).to_i
-      end
-      [x1, y1]
-    end
-
     private
 
-    def check_bounds(x, y)
-      if !x.between?(0, @width) || !y.between?(0, @height)
-        raise Exception::CanvasError, "Out of bounds: Pixel (#{x}, #{y}) doesn't exist."
-      end
+    # Ensure the provided point is within the image's bounds.
+    def bound_check(x, y)
+      Geometry.bound_check([[x, y]], [0, 0, @width, @height])
     end
 
     # Draw one line chunk, used for Xiaolin-Wu line algorithm
