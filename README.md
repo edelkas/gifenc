@@ -1,12 +1,17 @@
 # gifenc
 
+[![Gem Version](https://img.shields.io/gem/v/gifenc.svg)](https://rubygems.org/gems/gifenc)
+[![Gem](https://img.shields.io/gem/dt/gifenc.svg)](https://rubygems.org/gems/gifenc)
+[![Documentation](https://img.shields.io/badge/docs-grey.svg)](https://www.rubydoc.info/gems/gifenc/)
+[![Examples](https://img.shields.io/badge/examples-grey.svg)](https://github.com/edelkas/gifenc/tree/master/examples)
+
 A pure Ruby library with no external dependencies that allows to encode, decode and edit GIFs. Its main goals are to:
 
 * Support the full GIF [specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt) for both encoding and decoding.
 * Have a decent suite of editing functionalities, so that the need for external tools is avoided as much as possible.
 * Have a succint and comfortable syntax to use.
 
-Currently, the specs are almost fully supported for encoding. Decoding is not yet available, and the editing methods are very limited.
+Currently, the specs are almost fully supported for encoding. Decoding is not yet available, and the editing methods are very limited. See the [Reference](https://www.rubydoc.info/gems/gifenc/) for the full documentation, as well as [Examples](https://github.com/edelkas/gifenc/tree/master/examples) for a list of sample snippets and GIFs.
 
 ## A first example
 
@@ -55,7 +60,7 @@ Let's see a step-by-step overview, refer to the following sections for an in-dep
 
 Producing the second variation is surprisingly simple. It suffices to add the option `disposal: Gifenc::DISPOSAL_PREV` to the frames (except for the background). More on this later.
 
-See the [Examples](examples) folder for more code samples; the resulting GIFs are stored [here](res).
+See the [Examples](https://github.com/edelkas/gifenc/tree/master/examples) folder for more code samples; the resulting GIFs are stored [here](https://github.com/edelkas/gifenc/tree/master/res).
 
 ## Resources
 
