@@ -13,8 +13,8 @@ Currently, the specs are almost fully supported for encoding. Decoding is not ye
 Consider the following GIF and the variation next to it. They already showcase most of the main elements of the format, including global and local color tables, transparency, animation, and different disposal methods. It also makes use of some basic drawing methods:
 
 <p align="center">
-<img src="res/first_a.gif">
-<img src="res/first_b.gif">
+<img src="https://github.com/edelkas/gifenc/raw/master/res/first_a.gif">
+<img src="https://github.com/edelkas/gifenc/raw/master/res/first_b.gif">
 </p>
 
 The code to generate the first version with `Gifenc` is the following:
@@ -50,10 +50,12 @@ Let's see a step-by-step overview, refer to the following sections for an in-dep
 1. The first thing we do is create two **Color Tables**, one with red shades, and another with green shades. Since GIF is an indexed image format, it can only use colors from predefined palettes of at most 256 colors. `Gifenc` comes equipped with several default ones, but you can build your own, and operate with them.
 2. We create the GIF object. We select the red color table to be the **GCT** (_Global Color Table_), which is used for all frames that do not contain an explicit **LCT** (_Local Color Table_). We also set the GIF to loop indefinitely.
 3. We create the first frame, this will act as the background. We use the green color table as LCT for this frame. We set a few attributes, such as the default color of the canvas, the length of the frame, and the color used for transparency. We draw a sequence of centered green squares, they will help to see the transparency of the next frames.
-4. Now, we create a sequence of frames, each of them being a small square located at an offset of the canvas. Since they have no LCT, they will use the GCT, and will thus be red. We draw an even smaller square in their center with the transparent color, the background will then show through these hole in the GIF.
+4. Now, we create a sequence of frames, each of them being a small square located at an offset of the canvas. Since they have no LCT, they will use the GCT, and will thus be red. We draw an even smaller square in their center with the transparent color, the background will then show through these holes in the GIF.
 5. Finally, we export the GIF to a file, and voilà, we're done!
 
-Producing the second variation is surprisingly simple. It suffices to add the option `disposal: 3` to the frames (except for the background). More on this later.
+Producing the second variation is surprisingly simple. It suffices to add the option `disposal: Gifenc::DISPOSAL_PREV` to the frames (except for the background). More on this later.
+
+See the [Examples](examples) folder for more code samples; the resulting GIFs are stored [here](res).
 
 ## Resources
 

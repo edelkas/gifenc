@@ -1,10 +1,11 @@
 module Gifenc
   # This module encapsulates all the necessary geometric functionality, and
   # more generally, all mathematical methods that may be useful for several
-  # tasks of the library, such as drawing, resampling etc.
+  # tasks of the library, such as drawing, resampling, etc.
   module Geometry
 
-    # Finds the endpoint of a line given the startpoint `point` and _either_:
+    # Finds the endpoint of a line given the startpoint and something else.
+    # Namely, either of the following:
     # * The displacement vector (`vector`).
     # * The direction vector (`direction`) and the length (`length`).
     # * The angle (`angle`) and the length (`length`).
@@ -16,7 +17,7 @@ module Gifenc
     # @param angle [Float] Angle of the line in radians (0-2Pi).
     #   If this method is chosen, the `length` must be provided as well.
     # @param length [Float] The length of the line. Must be provided if either
-    #   the `diretion` or the `angle` method is being used.
+    #   the `direction` or the `angle` method is being used.
     # @return [Array<Integer>] The [X, Y] coordinates of the line's endpoint.
     # @raise [Exception::CanvasError] If the supplied parameters don't suffice
     #   to determine a line (e.g. provided the `angle` but not the `length`).

@@ -350,11 +350,22 @@ module Gifenc
       self
     end
 
-    # Draw a straight line connecting 2 points.
-    # @param x0 [Integer] X coordinate of first point.
-    # @param y0 [Integer] Y coordinate of first point.
-    # @param x1 [Integer] X coordinate of second point.
-    # @param y1 [Integer] Y coordinate of second point.
+    # Draw a straight line connecting 2 points. It requires the startpoint `p1`
+    # and _either_ of the following:
+    # * The endpoint (`p2`).
+    # * The displacement vector (`vector`).
+    # * The direction vector (`direction`) and the length (`length`).
+    # * The angle (`angle`) and the length (`length`).
+    # @param p1 [Array<Integer>] The [X, Y] coordinates of the startpoint.
+    # @param p2 [Array<Integer>] The [X, Y] coordinates of the endpoint.
+    # @param vector [Array<Integer>] The coordinates of the displacement vector.
+    # @param direction [Array<Integer>] The coordinates of the direction vector.
+    #   If this method is chosen, the `length` must be provided as well.
+    #   Note that this vector will be normalized automatically.
+    # @param angle [Float] Angle of the line in radians (0-2Pi).
+    #   If this method is chosen, the `length` must be provided as well.
+    # @param length [Float] The length of the line. Must be provided if either
+    #   the `direction` or the `angle` method is being used.
     # @param color [Integer] Index of the color of the line.
     # @param weight [Integer] Width of the line in pixels.
     # @param tip [Boolean] Whether to include the line's final pixel. This
@@ -371,8 +382,8 @@ module Gifenc
         x1, y1 = p2
       else
         x1, y1 = Geometry.endpoint(
-          point: p1, vector: vector,
-          angle: angle, direction: direction, length: length
+          point: p1, vector: vector, direction: direction,
+          angle: angle, length: length
         )
       end
       bound_check(x0, y0)

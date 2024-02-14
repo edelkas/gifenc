@@ -18,8 +18,7 @@ Gem::Specification.new do |s|
   s.metadata = {
     "homepage_uri"      => 'https://github.com/edelkas/gifenc',
     "source_code_uri"   => 'https://github.com/edelkas/gifenc',
-    "documentation_uri" => 'https://www.rubydoc.info/gems/gifenc/',
-    "changelog_uri"     => 'https://www.rubydoc.info/gems/gifenc/file/CHANGELOG.md'
+    "documentation_uri" => 'https://www.rubydoc.info/gems/gifenc/'
   }
   s.add_runtime_dependency('lzwrb')
   s.extra_rdoc_files = Dir['README.md', 'docs/**/*']
