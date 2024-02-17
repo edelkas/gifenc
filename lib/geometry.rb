@@ -114,100 +114,199 @@ module Gifenc
       true
     end
 
-    # Compute the left-hand (CCW) normal vector.
-    # @param x [Integer] X coordinate of the vector.
-    # @param y [Integer] Y coordinate of the vector.
-    # @return [Array<Integer>] The left-hand normal vector.
-    # @see .normal_right
-    def self.normal_left(x, y)
-      [y, -x]
-    end
+    # Represents a point in the plane. It's essentially a wrapper for an integer
+    # array with 2 elements (the coordinates) and many geometric methods that
+    # aid working with them. It is used indistinctly for both points and vectors.
+    class Point
 
-    # Compute the right-hand (CW) normal vector.
-    # @param (see .normal_left)
-    # @return [Array<Integer>] The right-hand normal vector.
-    # @see .normal_left
-    def self.normal_right(x, y)
-      [-y, x]
-    end
+      # The point representing the origin of coordinates.
+      # @return [Point] Origin of coordinates.
+      ORIGIN = Point.new(0, 0)
 
-    alias_method :normal, :normal_right
+      # The X coordinate of the point.
+      # @return [Integer] X coordinate.
+      attr_accessor :x
 
-    # Compute the p-norm of a vector. It should be `p>0`.
-    # @param x [Integer] X coordinate of the vector.
-    # @param y [Integer] Y coordinate of the vector.
-    # @param p [Float] The parameter of the norm.
-    # @return [Float] The p-norm of the vector.
-    # @see .norm_1
-    # @see .norm_2
-    # @see .norm_inf
-    def self.norm_p(x, y, p = 2)
-      (x.abs ** p + y.abs ** p) ** (1.0 / p)
-    end
+      # The Y coordinate of the point.
+      # @return [Integer] Y coordinate.
+      attr_accessor :y
 
-    # Shortcut to compute the 1-norm of a vector.
-    # @param (see .normal_left)
-    # @return [Float] The 1-norm of the vector.
-    # @see .norm_p
-    def self.norm_1(x, y)
-      (x.abs + y.abs).to_f
-    end
+      # Parse a point from an arbitrary argument. It accepts either:
+      # * A point object, in which case it returns itself.
+      # * An array, in which case it creates a new point whose coordinates are
+      #   the values of the array.
+      # @param point [Point,Array<Integer>] The parameter to parse the point from.
+      # @return [Point] The parsed point object.
+      # @raise [Exception::GeometryError] When a point couldn't be parsed from the supplied
+      #   argument.
+      def self.parse(point)
+        if p.is_a?(Point)
+          self
+        elsif p.is_a?(Array)
+          Point.new(p[0], p[1])
+        else
+          raise GeometryError, "Couldn't parse point from argument."
+        end
+      end
 
-    # Shortcut to compute the euclidean norm of a vector.
-    # @param (see .normal_left)
-    # @return [Float] The euclidean norm of the vector.
-    # @see .norm_p
-    def self.norm_2(x, y)
-      norm_p(x, y, 2)
-    end
+      # Create a new point given its coordinates. The coordinates are assumed to
+      # be the Cartesian coordinates with respect to the same axes as the desired
+      # image, and they need not be integers (though they'll be casted as such
+      # when actually drawing them).
+      # @param x [Float] The X coordinate of the point.
+      # @param y [Float] The Y coordinate of the point.
+      def initialize(x, y)
+        @x = x.to_f
+        @y = y.to_f
+      end
 
-    # Shortcut to compute the infinity (maximum) norm of a vector.
-    # @param (see .normal_left)
-    # @return [Float] The infinity norm of the vector.
-    # @see .norm_p
-    def self.norm_inf(x, y)
-      [x.abs, y.abs].max.to_f
-    end
+      # Compute the left-hand (CCW) normal vector.
+      # @return [Point] The left-hand normal vector.
+      # @see #normal_right
+      def normal_left
+        Point.new(@y, -@x)
+      end
 
-    alias_method :norm, :norm_2
+      # Compute the right-hand (CW) normal vector.
+      # @return [Point] The right-hand normal vector.
+      # @see #normal_left
+      def normal_right
+        Point.new(-@y, @x)
+      end
 
-    # Normalize the vector with respect to the p-norm. It should be `p>0`.
-    # @param (see .norm_p)
-    # @return [Array<Integer>] The normalized vector.
-    # @see .normalize_1
-    # @see .normalize_2
-    # @see .normalize_inf
-    def self.normalize_p(x, y, p)
-      mod = norm_p(x, y, p)
-      [(x / mod).round, (y / mod).round]
-    end
+      alias_method :normal, :normal_right
 
-    # Shotcut to normalize the vector with respect to the 1-norm.
-    # @param (see .normal_left)
-    # @return (see .normalize_p)
-    # @see .normalize_p
-    def self.normalize_1(x, y)
-      normalize_p(x, y, 1)
-    end
+      # Compute the p-norm of the vector. It should be `p>0`.
+      # @param p [Float] The parameter of the norm.
+      # @return [Float] The p-norm of the vector.
+      # @see #norm_1
+      # @see #norm
+      # @see #norm_inf
+      def norm_p(p = 2)
+        (@x.abs ** p + @y.abs ** p) ** (1.0 / p)
+      end
 
-    # Shotcut to normalize the vector with respect to the euclidean norm.
-    # @param (see .normal_left)
-    # @return (see .normalize_p)
-    # @see .normalize_p
-    def self.normalize_2(x, y)
-      normalize_p(x, y, 2)
-    end
+      # Shortcut to compute the 1-norm of the vector.
+      # @return [Float] The 1-norm of the vector.
+      # @see #norm_p
+      def norm_1
+        (@x.abs + @y.abs).to_f
+      end
 
-    # Shotcut to normalize the vector with respect to the infinity norm.
-    # @param (see .normal_left)
-    # @return (see .normalize_p)
-    # @see .normalize_p
-    def self.normalize_inf(x, y)
-      mod = norm_inf(x, y)
-      [(x / mod).round, (y / mod).round]
-    end
+      # Shortcut to compute the euclidean norm of the vector.
+      # @return [Float] The euclidean norm of the vector.
+      # @see #norm_p
+      def norm
+        norm_p(@x, @y, 2)
+      end
 
-    alias_method :normalize, :normalize_2
+      alias_method :norm_2, :norm
 
-  end
-end
+      # Shortcut to compute the infinity (maximum) norm of the vector.
+      # @return [Float] The infinity norm of the vector.
+      # @see #norm_p
+      def norm_inf
+        [@x.abs, @y.abs].max.to_f
+      end
+
+      # Normalize the vector with respect to the p-norm. It should be `p>0`.
+      # @param (see #norm_p)
+      # @return [Point] The normalized vector.
+      # @see #normalize_1
+      # @see #normalize
+      # @see #normalize_inf
+      def normalize_p(p)
+        normalize_gen(norm_p(p))
+      end
+
+      # Shotcut to normalize the vector with respect to the 1-norm.
+      # @return (see #normalize_p)
+      # @see #normalize_p
+      def normalize_1
+        normalize_p(1)
+      end
+
+      # Shotcut to normalize the vector with respect to the euclidean norm.
+      # @return (see #normalize_p)
+      # @see #normalize_p
+      def normalize
+        normalize_p(2)
+      end
+
+      alias_method :normalize_2, :normalize
+
+      # Shotcut to normalize the vector with respect to the infinity norm.
+      # @return (see #normalize_p)
+      # @see #normalize_p
+      def normalize_inf
+        normalize_gen(norm_inf)
+      end
+
+      # Add another point to this one.
+      # @param p [Point] The other point.
+      # @return [Point] The new point.
+      def +(p)
+        Point.new(@x + p.x, @y + p.y)
+      end
+
+      # Make all coordinates positive. This is equivalent to reflecting the
+      # point about the coordinate axes until it is in the first quadrant.
+      # @return (see #+)
+      def +@
+        Point.new(@x.abs, @y.abs)
+      end
+
+      # Subtract another point to this one.
+      # @param (see #+)
+      # @return (see #+)
+      def -(p)
+        Point.new(@x - p.x, @y - p.y)
+      end
+
+      # Take the opposite point with respect to the origin. This is equivalent
+      # to performing half a rotation about the origin.
+      # @return (see #-)
+      def -@
+        Point.new(-@x, -@y)
+      end
+
+      # Scale the point by a factor.
+      # @param s [Float] The factor to scale the point.
+      # @return (see #+)
+      def *(s)
+        Point.new(@x * s, @y * s)
+      end
+
+      # Scale the point by the inverse of a factor.
+      # @param (see #*)
+      # @return (see #+)
+      def /(s)
+        Point.new(@x / s, @y / s)
+      end
+
+      # Rotate the point by a certain angle about a given center.
+      # @param angle [Float] The angle to rotate the point, in radians.
+      # @param center [Point]
+      def rotate(angle, center = ORIGIN)
+        x_old = @x - center.x
+        y_old = @y - center.y
+        sin = Math.sin(angle)
+        cos = Math.cos(angle)
+        x = x_old * cos - y_old * sin
+        y = x_old * sin + y_old * cos
+        Point.new(x + center.x, y + center.y)
+      end
+
+      alias_method :translate, :+
+      alias_method :scale, :*
+
+      private
+
+      # Normalize the vector with respect to an arbitrary norm.
+      def normalize_gen(norm)
+        Point.new(@x / norm, @y / norm)
+      end
+
+    end # Class Point
+  end # Module Geometry
+end # Module Gifenc

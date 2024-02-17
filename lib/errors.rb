@@ -20,5 +20,9 @@ module Gifenc
     # such as trying to append 2 Graphic Control Extensions to the same image.
     class ExtensionError < Exception
     end
+
+    # Raised when a mathematic error happens in any of the calculations.
+    class GeometryError < Exception
+    end
   end
 end
