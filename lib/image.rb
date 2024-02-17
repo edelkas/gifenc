@@ -403,7 +403,7 @@ module Gifenc
 
       # If both endpoints are the same, draw a single point and return
       if dx == 0
-        brush_chunk(x0, y0, color, weight, swap)
+        brush_chunk(x0, y0, color, weight, swap: swap)
         return self
       end
 
@@ -419,7 +419,7 @@ module Gifenc
         y += sy if e_acc > 0xFFFF unless i == 0 && e == 0x10000
         e_acc &= 0xFFFF
         w = 0xFF - (e_acc >> 8)
-        brush_chunk(x, y, color, weight, swap)
+        brush_chunk(x, y, color, weight, swap: swap)
         x += sx
       end
 
@@ -436,24 +436,26 @@ module Gifenc
     # @param weight [Integer] Stroke width of the border in pixels.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
-    def rect(x, y, w, h, stroke, fill = nil, weight: 1)
+    def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
 
       # Fill rectangle, if provided
       if fill
-        for x in (x0 .. x1)
-          for y in (y0 .. y1)
+        (x0 .. x1).each{ |x|
+          (y0 .. y1).each{ |y|
             @pixels[y * @width + x] = fill
-          end
-        end
+          }
+        }
       end
 
       # Rectangle border
-      line(p1: [x0, y0], p2: [x1, y0], color: stroke, weight: weight)
-      line(p1: [x0, y1], p2: [x1, y1], color: stroke, weight: weight)
-      line(p1: [x0, y0], p2: [x0, y1], color: stroke, weight: weight)
-      line(p1: [x1, y0], p2: [x1, y1], color: stroke, weight: weight)
+      if stroke
+        line(p1: [x0, y0], p2: [x1, y0], color: stroke, weight: weight)
+        line(p1: [x0, y1], p2: [x1, y1], color: stroke, weight: weight)
+        line(p1: [x0, y0], p2: [x0, y1], color: stroke, weight: weight)
+        line(p1: [x1, y0], p2: [x1, y1], color: stroke, weight: weight)
+      end
 
       self
     end
@@ -466,7 +468,7 @@ module Gifenc
     end
 
     # Draw one line chunk, used for Xiaolin-Wu line algorithm
-    def line_chunk(x, y, color, weight = 1, swap = false)
+    def line_chunk(x, y, color, weight = 1, swap: false)
       weight = 1.0 if weight < 1.0
       weight = weight.to_i
       min = - weight / 2 + 1
@@ -484,25 +486,27 @@ module Gifenc
       end
     end
 
-    def brush_chunk(x, y, color, weight = 1, swap = false)
+    # Paint once with the brush at the specified coordinates.
+    # The anchor determines the position of the brush with respect to the
+    # specified coordinates, it goes from [-1, -1] (up and left of coords)
+    # to [1, 1] (right and down of coords). [0, 0] would mean the brush is
+    # centered in (x, y).
+    def brush_chunk(x, y, color, weight = 1, anchor: [0, 0], swap: false)
+      weight = weight.to_f
       weight = 1.0 if weight < 1.0
-      weight = weight.to_i
+      shift_x = ((1 - anchor[0]) * (weight - 1) / 2).round
+      shift_y = ((1 - anchor[1]) * (weight - 1) / 2).round
+      weight = weight.round
       x, y = y, x if swap
-      cross_brush = [
-        [ 0, -1],
-        [-1,  0],
-        [ 0,  0],
-        [ 1,  0],
-        [ 0,  1]
-      ]
-      two_by_two_brush = [
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [1, 1]
-      ]
-      two_by_two_brush.each{ |dx, dy|
-        self[x + dx, y + dy] = color if bound_check(x + dx, y + dy, true)
+      xlim_inf = -shift_x
+      xlim_sup = xlim_inf + weight
+      ylim_inf = -shift_y
+      ylim_sup = ylim_inf + weight
+
+      (xlim_inf ... xlim_sup).each{ |dy|
+        (ylim_inf ... ylim_sup).each{ |dx|
+          self[x + dx, y + dy] = color if bound_check(x + dx, y + dy, true)
+        }
       }
     end
 

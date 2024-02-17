@@ -114,5 +114,100 @@ module Gifenc
       true
     end
 
+    # Compute the left-hand (CCW) normal vector.
+    # @param x [Integer] X coordinate of the vector.
+    # @param y [Integer] Y coordinate of the vector.
+    # @return [Array<Integer>] The left-hand normal vector.
+    # @see .normal_right
+    def self.normal_left(x, y)
+      [y, -x]
+    end
+
+    # Compute the right-hand (CW) normal vector.
+    # @param (see .normal_left)
+    # @return [Array<Integer>] The right-hand normal vector.
+    # @see .normal_left
+    def self.normal_right(x, y)
+      [-y, x]
+    end
+
+    alias_method :normal, :normal_right
+
+    # Compute the p-norm of a vector. It should be `p>0`.
+    # @param x [Integer] X coordinate of the vector.
+    # @param y [Integer] Y coordinate of the vector.
+    # @param p [Float] The parameter of the norm.
+    # @return [Float] The p-norm of the vector.
+    # @see .norm_1
+    # @see .norm_2
+    # @see .norm_inf
+    def self.norm_p(x, y, p = 2)
+      (x.abs ** p + y.abs ** p) ** (1.0 / p)
+    end
+
+    # Shortcut to compute the 1-norm of a vector.
+    # @param (see .normal_left)
+    # @return [Float] The 1-norm of the vector.
+    # @see .norm_p
+    def self.norm_1(x, y)
+      (x.abs + y.abs).to_f
+    end
+
+    # Shortcut to compute the euclidean norm of a vector.
+    # @param (see .normal_left)
+    # @return [Float] The euclidean norm of the vector.
+    # @see .norm_p
+    def self.norm_2(x, y)
+      norm_p(x, y, 2)
+    end
+
+    # Shortcut to compute the infinity (maximum) norm of a vector.
+    # @param (see .normal_left)
+    # @return [Float] The infinity norm of the vector.
+    # @see .norm_p
+    def self.norm_inf(x, y)
+      [x.abs, y.abs].max.to_f
+    end
+
+    alias_method :norm, :norm_2
+
+    # Normalize the vector with respect to the p-norm. It should be `p>0`.
+    # @param (see .norm_p)
+    # @return [Array<Integer>] The normalized vector.
+    # @see .normalize_1
+    # @see .normalize_2
+    # @see .normalize_inf
+    def self.normalize_p(x, y, p)
+      mod = norm_p(x, y, p)
+      [(x / mod).round, (y / mod).round]
+    end
+
+    # Shotcut to normalize the vector with respect to the 1-norm.
+    # @param (see .normal_left)
+    # @return (see .normalize_p)
+    # @see .normalize_p
+    def self.normalize_1(x, y)
+      normalize_p(x, y, 1)
+    end
+
+    # Shotcut to normalize the vector with respect to the euclidean norm.
+    # @param (see .normal_left)
+    # @return (see .normalize_p)
+    # @see .normalize_p
+    def self.normalize_2(x, y)
+      normalize_p(x, y, 2)
+    end
+
+    # Shotcut to normalize the vector with respect to the infinity norm.
+    # @param (see .normal_left)
+    # @return (see .normalize_p)
+    # @see .normalize_p
+    def self.normalize_inf(x, y)
+      mod = norm_inf(x, y)
+      [(x / mod).round, (y / mod).round]
+    end
+
+    alias_method :normalize, :normalize_2
+
   end
 end
