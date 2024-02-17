@@ -3,12 +3,38 @@ require 'gifenc'
 DIM   = 128
 STEPS = 64
 
-# Build a global color table with a few colors, create a looping GIF,
-# and add a first frame which will act as the background
-palette = Gifenc::ColorTable.new([0xFFFFFF, 0, 0x808080, 0xFF0000])
-gif = Gifenc::Gif.new(DIM, DIM, gct: palette, loops: -1)
-gif.images << Gifenc::Image.new(DIM, DIM, color: 2, delay: 2)
+# Build a global color table with a few colors
+palette = Gifenc::ColorTable.new(
+  [
+    0xffffff, # White, will be the transparent color
+    0x78563b, # Dark brown, for clock hands
+    0xB78E6C, # Mid brown, for clock marks
+    0xead2a2  # Light brown, for background
+  ]
+)
 
+# Create a looping GIF, and add a first frame which be the clock's background
+gif = Gifenc::Gif.new(DIM, DIM, gct: palette, loops: -1)
+gif.images << Gifenc::Image.new(DIM, DIM, color: 3, delay: 2)
+
+# Draw hour marks on the first frame, they'll remain fixed
+(0 ... 12).each{ |hour|
+  center = [DIM / 2, DIM / 2]
+  angle = 2.0 * Math::PI * hour / 12
+  endpoint_1 = Gifenc::Geometry.endpoint(
+    point:  center,
+    angle:  angle,
+    length: 0.4 * DIM
+  )
+  endpoint_2 = Gifenc::Geometry.endpoint(
+    point:  center,
+    angle:  angle,
+    length: 0.5 * DIM
+  )
+  gif.images.last.line(p1: endpoint_1, p2: endpoint_2, color: 2, weight: 2)
+}
+
+# Draw clock hand moving
 STEPS.times.each{ |i|
   # Determine the coordinates of the endpoints of the line, with respect
   # to the whole canvas

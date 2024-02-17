@@ -303,7 +303,7 @@ module Gifenc
     # @param y [Integer] The Y coordinate of the pixel.
     # @return [Integer] The color index of the pixel.
     def [](x, y)
-      @pixels[y * width + x]
+      @pixels[y * @width + x]
     end
 
     # Set the value (color _index_) of a pixel fast (i.e. without bound checks).
@@ -313,7 +313,7 @@ module Gifenc
     # @param color [Integer] The new color index of the pixel.
     # @return [Integer] The new color index of the pixel.
     def []=(x, y, color)
-      @pixels[y * width + x] = color & 0xFF
+      @pixels[y * @width + x] = color & 0xFF
     end
 
     # Get the values (color _index_) of a list of pixels safely (i.e. with bound
@@ -326,7 +326,7 @@ module Gifenc
       bound_check(points.min_by(&:first)[0], points.min_by(&:last)[1])
       bound_check(points.max_by(&:first)[0], points.max_by(&:last)[1])
       points.map{ |p|
-        @pixels[p[1] * width + p[0]]
+        @pixels[p[1] * @width + p[0]]
       }
     end
 
@@ -345,7 +345,7 @@ module Gifenc
       bound_check(points.max_by(&:first)[0], points.max_by(&:last)[1])
       single = colors.is_a?(Integer)
       points.each_with_index{ |p, i|
-        @pixels[p[1] * width + p[0]] = single ? color & 0xFF : colors[i] & 0xFF
+        @pixels[p[1] * @width + p[0]] = single ? color & 0xFF : colors[i] & 0xFF
       }
       self
     end
@@ -386,8 +386,6 @@ module Gifenc
           angle: angle, length: length
         )
       end
-      bound_check(x0, y0)
-      bound_check(x1, y1)
 
       # Normalize coordinates
       swap = (y1 - y0).abs > (x1 - x0).abs
@@ -405,7 +403,7 @@ module Gifenc
 
       # If both endpoints are the same, draw a single point and return
       if dx == 0
-        line_chunk(x0, y0, color, weight, swap)
+        brush_chunk(x0, y0, color, weight, swap)
         return self
       end
 
@@ -441,8 +439,6 @@ module Gifenc
     def rect(x, y, w, h, stroke, fill = nil, weight: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
-      bound_check(x0, y0)
-      bound_check(x1, y1)
 
       # Fill rectangle, if provided
       if fill
@@ -465,8 +461,8 @@ module Gifenc
     private
 
     # Ensure the provided point is within the image's bounds.
-    def bound_check(x, y)
-      Geometry.bound_check([[x, y]], [0, 0, @width, @height])
+    def bound_check(x, y, silent = false)
+      Geometry.bound_check([[x, y]], [0, 0, @width, @height], silent)
     end
 
     # Draw one line chunk, used for Xiaolin-Wu line algorithm
@@ -505,7 +501,9 @@ module Gifenc
         [0, 1],
         [1, 1]
       ]
-      two_by_two_brush.each{ |dx, dy| self[x + dx, y + dy] = color }
+      two_by_two_brush.each{ |dx, dy|
+        self[x + dx, y + dy] = color if bound_check(x + dx, y + dy, true)
+      }
     end
 
   end

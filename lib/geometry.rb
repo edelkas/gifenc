@@ -102,8 +102,8 @@ module Gifenc
     #   bounding box and `silent` has not been set.
     def self.bound_check(points, bbox, silent = false)
       outer_points = points.select{ |p|
-        !p[0].between?(bbox[0], bbox[0] + bbox[2]) ||
-        !p[1].between?(bbox[1], bbox[1] + bbox[3])
+        !p[0].between?(bbox[0], bbox[0] + bbox[2] - 1) ||
+        !p[1].between?(bbox[1], bbox[1] + bbox[3] - 1)
       }
       if outer_points.size > 0
         return false if silent

@@ -73,3 +73,4 @@
   automatically cropped and offsetted in the logical screen with a function
   before calling encode. This should all be optional of course.
 - Improve structure of the TODO
+- Add a GIF report method, to print all relevant info for a decoded GIF
