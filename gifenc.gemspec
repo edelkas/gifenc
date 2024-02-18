@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'gifenc'
-  s.version     = '0.1.0'
+  s.version     = '0.2.0'
   s.summary     = 'GIF encoder, decoder and editor in pure Ruby'
   s.description = <<-EOT
     This library provides GIF encoding, decoding and editing capabilities natively
@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
     tuned if you're interested!
   EOT
   s.authors     = ['edelkas']
-  s.files       = Dir['lib/**/*', 'README.md', 'docs/**/*', '.yardopts']
+  s.files       = Dir['lib/**/*', 'README.md', 'CHANGELOG.md', 'docs/**/*', '.yardopts']
   s.homepage    = 'https://github.com/edelkas/gifenc'
   s.metadata = {
     "homepage_uri"      => 'https://github.com/edelkas/gifenc',
@@ -21,5 +21,5 @@ Gem::Specification.new do |s|
     "documentation_uri" => 'https://www.rubydoc.info/gems/gifenc'
   }
   s.add_runtime_dependency('lzwrb')
-  s.extra_rdoc_files = Dir['README.md', 'docs/**/*']
+  s.extra_rdoc_files = Dir['README.md', 'CHANGELOG.md', 'docs/**/*']
 end

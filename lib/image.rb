@@ -414,11 +414,10 @@ module Gifenc
     # @param fill   [Integer] Index of the fill color (`nil` for no fill).
     # @param weight [Integer] Stroke width of the border in pixels.
     # @param anchor [Float]   Indicates the position of the border with respect
-    #   to the rectangle's boundary. For example:
+    #   to the rectangle's boundary. Must be between -1 and 1. For example:
     #   * For `0` the border is centered around the boundary.
     #   * For `1` the border is entirely contained within the boundary.
     #   * For `-1` the border is entirely surrounding the boundary.
-    #   Must be between -1 and 1.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
     def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1)
