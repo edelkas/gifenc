@@ -447,8 +447,7 @@ module Gifenc
               p2:     points[(i + 1) % 4],
               color:  stroke,
               weight: weight,
-              anchor: anchor,
-              bbox:   nil#[x, y, w, h]
+              anchor: anchor
             )
           }
         end
