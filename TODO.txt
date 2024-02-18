@@ -74,3 +74,9 @@
   before calling encode. This should all be optional of course.
 - Improve structure of the TODO
 - Add a GIF report method, to print all relevant info for a decoded GIF
+- The GIF's default color currently doesn't do anything, it's not true that it's
+  the image's default color because we construct them completely independently.
+- Add comparison functions: Compare 2 images, and 2 GIFs. Useful for determining
+  whether 2 GIFs, potentially encoded differently (with color tables in other order,
+  different LZW settings, etc) have the same exact frames. Perhaps even quantify
+  difference.

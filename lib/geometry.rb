@@ -4,6 +4,11 @@ module Gifenc
   # tasks of the library, such as drawing, resampling, etc.
   module Geometry
 
+    # Precision of the floating point math. Anything below this threshold will
+    # be considered 0.
+    # @return [Float] Floating point math precision.
+    PRECISION = 1E-7
+
     # Finds the endpoint of a line given the startpoint and something else.
     # Namely, either of the following:
     # * The displacement vector (`vector`).
@@ -25,23 +30,23 @@ module Gifenc
         point: nil, vector: nil, direction: nil, angle: nil, length: nil
       )
       raise Exception::CanvasError, "The line start must be specified." if !point
+      point = Point.parse(point)
       if vector
-        x1 = x0 + vector[0]
-        y1 = y0 + vector[1]
+        vector = Point.parse(vector)
+        x1 = point.x + vector.x
+        y1 = point.y + vector.y
       else
         raise Exception::CanvasError, "Either the endpoint, the vector or the length must be provided." if !length
         if direction
-          mod = Math.sqrt(direction[0] ** 2 + direction[1] ** 2)
-          direction[0] /= mod
-          direction[1] /= mod
+          direction = Point.parse(direction).normalize
         else
           raise Exception::CanvasError, "The angle must be specified if no direction is provided." if !angle
-          direction = [Math.cos(angle), Math.sin(angle)]
+          direction = Point.new([Math.cos(angle), Math.sin(angle)])
         end
-        x1 = (point[0] + length * direction[0]).to_i
-        y1 = (point[1] + length * direction[1]).to_i
+        x1 = (point.x + length * direction.x).to_i
+        y1 = (point.y + length * direction.y).to_i
       end
-      [x1, y1]
+      Point.new([x1, y1])
     end
 
     # Finds the bounding box of a set of points, i.e., the minimal rectangle
@@ -117,11 +122,9 @@ module Gifenc
     # Represents a point in the plane. It's essentially a wrapper for an integer
     # array with 2 elements (the coordinates) and many geometric methods that
     # aid working with them. It is used indistinctly for both points and vectors.
+    # @todo Add reflections, dot product and projections, and implement this class
+    #    in drawing methods such as line or rect.
     class Point
-
-      # The point representing the origin of coordinates.
-      # @return [Point] Origin of coordinates.
-      ORIGIN = Point.new(0, 0)
 
       # The X coordinate of the point.
       # @return [Integer] X coordinate.
@@ -140,12 +143,12 @@ module Gifenc
       # @raise [Exception::GeometryError] When a point couldn't be parsed from the supplied
       #   argument.
       def self.parse(point)
-        if p.is_a?(Point)
-          self
-        elsif p.is_a?(Array)
-          Point.new(p[0], p[1])
+        if point.is_a?(Point)
+          point
+        elsif point.is_a?(Array)
+          Point.new(point[0], point[1])
         else
-          raise GeometryError, "Couldn't parse point from argument."
+          raise Exception::GeometryError, "Couldn't parse point from argument."
         end
       end
 
@@ -159,6 +162,10 @@ module Gifenc
         @x = x.to_f
         @y = y.to_f
       end
+
+      # The point representing the origin of coordinates.
+      # @return [Point] Origin of coordinates.
+      ORIGIN = Point.new(0, 0)
 
       # Compute the left-hand (CCW) normal vector.
       # @return [Point] The left-hand normal vector.
@@ -215,6 +222,7 @@ module Gifenc
       # @see #normalize_1
       # @see #normalize
       # @see #normalize_inf
+      # @raise [Exception::GeometryError] If trying to normalize the null vector.
       def normalize_p(p)
         normalize_gen(norm_p(p))
       end
@@ -222,6 +230,7 @@ module Gifenc
       # Shotcut to normalize the vector with respect to the 1-norm.
       # @return (see #normalize_p)
       # @see #normalize_p
+      # @raise [Exception::GeometryError] If trying to normalize the null vector.
       def normalize_1
         normalize_p(1)
       end
@@ -229,6 +238,7 @@ module Gifenc
       # Shotcut to normalize the vector with respect to the euclidean norm.
       # @return (see #normalize_p)
       # @see #normalize_p
+      # @raise [Exception::GeometryError] If trying to normalize the null vector.
       def normalize
         normalize_p(2)
       end
@@ -238,6 +248,7 @@ module Gifenc
       # Shotcut to normalize the vector with respect to the infinity norm.
       # @return (see #normalize_p)
       # @see #normalize_p
+      # @raise [Exception::GeometryError] If trying to normalize the null vector.
       def normalize_inf
         normalize_gen(norm_inf)
       end
@@ -246,6 +257,7 @@ module Gifenc
       # @param p [Point] The other point.
       # @return [Point] The new point.
       def +(p)
+        p = Point.parse(p)
         Point.new(@x + p.x, @y + p.y)
       end
 
@@ -260,6 +272,7 @@ module Gifenc
       # @param (see #+)
       # @return (see #+)
       def -(p)
+        p = Point.parse(p)
         Point.new(@x - p.x, @y - p.y)
       end
 
@@ -286,8 +299,10 @@ module Gifenc
 
       # Rotate the point by a certain angle about a given center.
       # @param angle [Float] The angle to rotate the point, in radians.
-      # @param center [Point]
+      # @param center [Point] The point to rotate about.
+      # @return (see #+)
       def rotate(angle, center = ORIGIN)
+        center = Point.parse(center)
         x_old = @x - center.x
         y_old = @y - center.y
         sin = Math.sin(angle)
@@ -297,13 +312,80 @@ module Gifenc
         Point.new(x + center.x, y + center.y)
       end
 
+      # Shortcut to rotate the point 90 degrees counterclockwise about a given
+      #   center.
+      # @param center [Point] The point to rotate about.
+      # @return (see #+)
+      def rotate_left(center = ORIGIN)
+        rotate(-Math::PI / 2, center)
+      end
+
+      # Shortcut to rotate the point 90 degrees clockwise about a given center.
+      # @param (see #rotate_left)
+      # @return (see #+)
+      def rotate_right(center = ORIGIN)
+        rotate(Math::PI / 2, center)
+      end
+
+      # Shortcut to rotate the point 180 degrees about a given center.
+      # @param (see #rotate_left)
+      # @return (see #+)
+      def rotate_180(center = ORIGIN)
+        rotate(Math::PI, center)
+      end
+
       alias_method :translate, :+
       alias_method :scale, :*
+
+      # Convert to integer point by rounding the coordinates.
+      # @return (see #+)
+      # @see #to_i
+      # @see #floor
+      # @see #ceil
+      def round
+        Point.new(@x.round, @y.round)
+      end
+
+      # Convert to integer point by taking the integer part of the coordinates.
+      # @return (see #+)
+      # @see #floor
+      # @see #ceil
+      # @see #round
+      def to_i
+        Point.new(@x.to_i, @y.to_i)
+      end
+
+      alias_method :truncate, :to_i
+
+      # Convert to integer point by taking the floor part of the coordinates.
+      # @return (see #+)
+      # @see #to_i
+      # @see #ceil
+      # @see #round
+      def floor
+        Point.new(@x.floor, @y.floor)
+      end
+
+      # Convert to integer point by taking the ceiling part of the coordinates.
+      # @return (see #+)
+      # @see #to_i
+      # @see #floor
+      # @see #round
+      def ceil
+        Point.new(@x.ceil, @y.ceil)
+      end
+
+      # Format the point's coordinates in the usual form.
+      # @return [String] The formatted point.
+      def to_s
+        "(#{@x}, #{@y})"
+      end
 
       private
 
       # Normalize the vector with respect to an arbitrary norm.
       def normalize_gen(norm)
+        raise GeometryError, "Cannot normalize null vector." if norm < PRECISION
         Point.new(@x / norm, @y / norm)
       end
 

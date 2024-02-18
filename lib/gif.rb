@@ -208,6 +208,20 @@ module Gifenc
       self
     end
 
+    # Duplicates all frames in reverse order. Generates a boomerang effect,
+    # particularly neat when looped.
+    # @param first [Boolean] Whether to duplicate the very first frame. Probably
+    #   not desired for looping GIFs, because then the first frame would appear
+    #   twice in a row (at the start, and at the end). Useful for non-looping
+    #   boomerangs.
+    # @return [Gif] The GIF object.
+    def boomerang(first = false)
+      (@images.size - 2).downto(first ? 0 : 1).each{ |i|
+        @images << @images[i].dup
+      }
+      self
+    end
+
     # Encode and write the GIF to a string.
     # @return [String] The string containing the encoded GIF file.
     def write

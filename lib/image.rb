@@ -168,7 +168,7 @@ module Gifenc
         @width, @height, @x, @y,
         color: @color, gce: gce, delay: @delay, trans_color: @trans_color,
         disposal: @disposal, interlace: @interlace, lct: lct
-      )
+      ).replace(@pixels)
       image
     end
 
@@ -368,60 +368,39 @@ module Gifenc
     #   the `direction` or the `angle` method is being used.
     # @param color [Integer] Index of the color of the line.
     # @param weight [Integer] Width of the line in pixels.
-    # @param tip [Boolean] Whether to include the line's final pixel. This
-    #   is useful for when multiple lines are joined to form a polygonal line.
+    # @param anchor [Float] Since the weight can be multiple pixels, this argument
+    #   indicates the position of the line with respect to the coordinates. It
+    #   must be in the interval [-1, 1]. A value of `0` centers the line in its
+    #   width, a value of `-1` draws it on one side, and `1` on the other.
+    # @param bbox [Array<Integer>] Bounding box determining the region in which
+    #   the line must be contained. Anything outside it won't be drawn. If
+    #   `nil`, this defaults to the whole image.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the line would go out of bounds.
     # @todo Add support for anchors and anti-aliasing, better brushes, etc.
-    def line(p1: nil, p2: nil, vector: nil, angle: nil,
-      direction: nil, length: nil, color: 0, weight: 1, tip: true)
+    def line(p1: nil, p2: nil, vector: nil, angle: nil, direction: nil,
+      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil)
       # Determine start and end points
       raise Exception::CanvasError, "The line start must be specified." if !p1
-      x0, y0 = p1
+      p1 = Geometry::Point.parse(p1)
       if p2
-        x1, y1 = p2
+        p2 = Geometry::Point.parse(p2)
       else
-        x1, y1 = Geometry.endpoint(
+        p2 = Geometry.endpoint(
           point: p1, vector: vector, direction: direction,
           angle: angle, length: length
         )
       end
 
-      # Normalize coordinates
-      swap = (y1 - y0).abs > (x1 - x0).abs
-      x0, x1, y0, y1 = y0, y1, x0, x1 if swap
-
-      # Precompute useful parameters
-      dx = x1 - x0
-      dy = y1 - y0
-      sx = dx < 0 ? -1 : 1
-      sy = dy < 0 ? -1 : 1
-      dx *= sx
-      dy *= sy
-      x, y = x0, y0
-      s = [sx, sy]
-
-      # If both endpoints are the same, draw a single point and return
-      if dx == 0
-        brush_chunk(x0, y0, color, weight, swap: swap)
-        return self
-      end
-
-      # Rotate weight
-      e_acc = 0
-      e = ((dy << 16) / dx.to_f).round
-      max = (dy <= 1 ? dx - 1 : dx + (weight / 2.0).to_i - 2) + (tip ? 1 : 0)
-      weight *= (1 + (dy.to_f / dx) ** 2) ** 0.5
-
-      # Draw line chunks
-      0.upto(max) do |i|
-        e_acc += e
-        y += sy if e_acc > 0xFFFF unless i == 0 && e == 0x10000
-        e_acc &= 0xFFFF
-        w = 0xFF - (e_acc >> 8)
-        brush_chunk(x, y, color, weight, swap: swap)
-        x += sx
-      end
+      a = (p2 - p1).normal_right.normalize_inf
+      a -= a * (1 - anchor)
+      steps = [(p2.x - p1.x).abs, (p2.y - p1.y).abs].max.round + 1
+      delta = (p2 - p1) / [(steps - 1), 1].max
+      point = p1
+      steps.times.each{ |s|
+        brush(point.x.round, point.y.round, color, weight, anchor: [a.x, a.y], bbox: bbox)
+        point += delta
+      }
 
       self
     end
@@ -434,9 +413,15 @@ module Gifenc
     # @param stroke [Integer] Index of the border color.
     # @param fill   [Integer] Index of the fill color (`nil` for no fill).
     # @param weight [Integer] Stroke width of the border in pixels.
+    # @param anchor [Float]   Indicates the position of the border with respect
+    #   to the rectangle's boundary. For example:
+    #   * For `0` the border is centered around the boundary.
+    #   * For `1` the border is entirely contained within the boundary.
+    #   * For `-1` the border is entirely surrounding the boundary.
+    #   Must be between -1 and 1.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
-    def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1)
+    def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
 
@@ -451,10 +436,22 @@ module Gifenc
 
       # Rectangle border
       if stroke
-        line(p1: [x0, y0], p2: [x1, y0], color: stroke, weight: weight)
-        line(p1: [x0, y1], p2: [x1, y1], color: stroke, weight: weight)
-        line(p1: [x0, y0], p2: [x0, y1], color: stroke, weight: weight)
-        line(p1: [x1, y0], p2: [x1, y1], color: stroke, weight: weight)
+        if anchor != 0
+          o = ((weight - 1) / 2.0 * anchor).round
+          rect(x + o, y + o, w - 2 * o, h - 2 * o, stroke, weight: weight, anchor: 0)
+        else
+          points = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+          4.times.each{ |i|
+            line(
+              p1:     points[i],
+              p2:     points[(i + 1) % 4],
+              color:  stroke,
+              weight: weight,
+              anchor: anchor,
+              bbox:   nil#[x, y, w, h]
+            )
+          }
+        end
       end
 
       self
@@ -467,45 +464,29 @@ module Gifenc
       Geometry.bound_check([[x, y]], [0, 0, @width, @height], silent)
     end
 
-    # Draw one line chunk, used for Xiaolin-Wu line algorithm
-    def line_chunk(x, y, color, weight = 1, swap: false)
-      weight = 1.0 if weight < 1.0
-      weight = weight.to_i
-      min = - weight / 2 + 1
-      max =   weight / 2
-
-      w = min
-      if !swap
-        self[x, y + w] = color
-        self[x, y + w] = color while (w += 1) < max
-        self[x, y + w] = color if w <= max
-      else
-        self[y + w, x] = color
-        self[y + w, x] = color while (w += 1) < max
-        self[y + w, x] = color if w <= max
-      end
-    end
-
     # Paint once with the brush at the specified coordinates.
     # The anchor determines the position of the brush with respect to the
     # specified coordinates, it goes from [-1, -1] (up and left of coords)
     # to [1, 1] (right and down of coords). [0, 0] would mean the brush is
     # centered in (x, y).
-    def brush_chunk(x, y, color, weight = 1, anchor: [0, 0], swap: false)
+    def brush(x, y, color, weight = 1, anchor: [0, 0], bbox: nil)
       weight = weight.to_f
       weight = 1.0 if weight < 1.0
       shift_x = ((1 - anchor[0]) * (weight - 1) / 2).round
       shift_y = ((1 - anchor[1]) * (weight - 1) / 2).round
       weight = weight.round
-      x, y = y, x if swap
+
       xlim_inf = -shift_x
       xlim_sup = xlim_inf + weight
       ylim_inf = -shift_y
       ylim_sup = ylim_inf + weight
 
-      (xlim_inf ... xlim_sup).each{ |dy|
-        (ylim_inf ... ylim_sup).each{ |dx|
-          self[x + dx, y + dy] = color if bound_check(x + dx, y + dy, true)
+      bbox = [0, 0, @width, @height] if !bbox
+      (ylim_inf ... ylim_sup).each{ |dy|
+        (xlim_inf ... xlim_sup).each{ |dx|
+          if Geometry.bound_check([[x + dx, y + dy]], bbox, true)
+            self[x + dx, y + dy] = color
+          end
         }
       }
     end
