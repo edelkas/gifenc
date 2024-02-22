@@ -375,11 +375,13 @@ module Gifenc
     # @param bbox [Array<Integer>] Bounding box determining the region in which
     #   the line must be contained. Anything outside it won't be drawn. If
     #   `nil`, this defaults to the whole image.
+    # @param avoid [Array<Integer>] List of colors over which the line should
+    #   NOT be drawn.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the line would go out of bounds.
     # @todo Add support for anchors and anti-aliasing, better brushes, etc.
     def line(p1: nil, p2: nil, vector: nil, angle: nil, direction: nil,
-      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil)
+      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil, avoid: [])
       # Determine start and end points
       raise Exception::CanvasError, "The line start must be specified." if !p1
       p1 = Geometry::Point.parse(p1)
@@ -401,8 +403,9 @@ module Gifenc
       steps = [(p2.x - p1.x).abs, (p2.y - p1.y).abs].max.round + 1
       delta = (p2 - p1) / [(steps - 1), 1].max
       point = p1
+      brush = Brush.square(weight, color, [a.x, a.y])
       steps.times.each{ |s|
-        brush(point.x.round, point.y.round, color, weight, anchor: [a.x, a.y], bbox: bbox)
+        brush.draw(point.x.round, point.y.round, self, bbox: bbox, avoid: avoid)
         point += delta
       }
 
@@ -459,38 +462,91 @@ module Gifenc
       self
     end
 
+    # Represents a type of drawing brush, and encapsulates all the logic necessary
+    # to use it, such as the weight, shape, anchor point, color, etc.
+    class Brush
+
+      # Actual pixels that form the brush, and that will be drawn when using it.
+      # It is an array of pairs of coordinates, representing the X and Y offsets
+      # from the drawing point that will be painted. For example, if
+      #   `pixels = [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]`
+      # then the brush will be a small cross centered at the drawing point.
+      # @return [Array<Array<Integer>>] Coordinates of the brush relative to the
+      #   drawing point.
+      attr_accessor :pixels
+
+      # The index in the color table of the default color to use when painting
+      # with this brush. It can be overidden whenever it's actually used.
+      # @return [Integer] Default color index.
+      attr_accessor :color
+
+      # Creates a square brush of a given size.
+      # @param weight [Float] Size of the brush (side of the square) in pixels.
+      # @param color [Integer] Index of the color to use as default for drawing
+      #   when no explicit color is provided.
+      # @param anchor [Array<Float>] The anchor determines the position of the
+      #   brush with respect to the drawing coordinates. It goes from [-1, -1]
+      #   (up and left) to [1, 1] (right and down). [0, 0]  would mean the brush
+      #   is centered.
+      # @return [Brush] The new square brush.
+      def self.square(weight = 1, color = nil, anchor = [0, 0])
+        weight = weight.to_f
+        weight = 1.0 if weight < 1.0
+        shift_x = ((1 - anchor[0]) * (weight - 1) / 2).round
+        shift_y = ((1 - anchor[1]) * (weight - 1) / 2).round
+        weight = weight.round
+
+        xlim_inf = -shift_x
+        xlim_sup = xlim_inf + weight
+        ylim_inf = -shift_y
+        ylim_sup = ylim_inf + weight
+
+        new(
+          (xlim_inf ... xlim_sup).to_a.product((ylim_inf ... ylim_sup).to_a),
+          color
+        )
+      end
+
+      # Create a new brush by providing the raw pixels that form it. For common
+      # shapes, you may instead prefer to use one of the helpers, such as
+      # {.square}.
+      # @param pixels [Array<Array<Integer>>] Relative coordinates of the pixels
+      #   that compose the brush (see {#pixels}).
+      # @param color [Integer] Index of default brush color.
+      # @return [Brush] The new brush.
+      def initialize(pixels, color = nil)
+        @pixels = pixels
+        @color = color
+      end
+
+      # Use the brush to draw once on an image at the specified point. If no
+      # color is specified, the brush's default color will be used. A bounding
+      # box can be provided to restrict where in the image the drawing may
+      # happen. If it's not specified, the whole image will determine this box.
+      # @param x [Integer] X coordinate of the drawing point.
+      # @param y [Integer] Y coordinate of the drawing point.
+      # @param img [Image] Image to draw onto.
+      # @param color [Integer] Index of the color in the color table to use.
+      # @param bbox [Array<Integer>] Bounding box determining the drawing region,
+      #   in the format `[X, Y, W, H]`.
+      # @param avoid [Array<Integer>] List of colors over which the brush should
+      #   NOT paint.
+      def draw(x, y, img, color = @color, bbox: nil, avoid: [])
+        raise Exception::CanvasError, "No provided color nor default color found." if !color
+        bbox = [0, 0, img.width, img.height] if !bbox
+        @pixels.each{ |dx, dy|
+          if Geometry.bound_check([[x + dx, y + dy]], bbox, true) && !avoid.include?(img[x + dx, y + dy])
+            img[x + dx, y + dy] = color
+          end
+        }
+      end
+    end
+
     private
 
     # Ensure the provided point is within the image's bounds.
     def bound_check(x, y, silent = false)
       Geometry.bound_check([[x, y]], [0, 0, @width, @height], silent)
-    end
-
-    # Paint once with the brush at the specified coordinates.
-    # The anchor determines the position of the brush with respect to the
-    # specified coordinates, it goes from [-1, -1] (up and left of coords)
-    # to [1, 1] (right and down of coords). [0, 0] would mean the brush is
-    # centered in (x, y).
-    def brush(x, y, color, weight = 1, anchor: [0, 0], bbox: nil)
-      weight = weight.to_f
-      weight = 1.0 if weight < 1.0
-      shift_x = ((1 - anchor[0]) * (weight - 1) / 2).round
-      shift_y = ((1 - anchor[1]) * (weight - 1) / 2).round
-      weight = weight.round
-
-      xlim_inf = -shift_x
-      xlim_sup = xlim_inf + weight
-      ylim_inf = -shift_y
-      ylim_sup = ylim_inf + weight
-
-      bbox = [0, 0, @width, @height] if !bbox
-      (ylim_inf ... ylim_sup).each{ |dy|
-        (xlim_inf ... xlim_sup).each{ |dx|
-          if Geometry.bound_check([[x + dx, y + dy]], bbox, true)
-            self[x + dx, y + dy] = color
-          end
-        }
-      }
     end
 
   end
