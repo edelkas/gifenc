@@ -392,8 +392,12 @@ module Gifenc
         )
       end
 
-      a = (p2 - p1).normal_right.normalize_inf
-      a -= a * (1 - anchor)
+      if (p2 - p1).norm < Geometry::PRECISION
+        a = Geometry::ORIGIN
+      else
+        a = (p2 - p1).normal_right.normalize_inf
+        a -= a * (1 - anchor)
+      end
       steps = [(p2.x - p1.x).abs, (p2.y - p1.y).abs].max.round + 1
       delta = (p2 - p1) / [(steps - 1), 1].max
       point = p1
