@@ -3,6 +3,7 @@
   the colors and then eventually the palette needs to be created based on those
   colors (either by finding the best possible palette, or by fitting the image
   in whatever palette was specified, perhaps with a given tolerance).
+- Multiple palette operations: Union (merge), intersection, difference...
 - When modifying the color table, we should probably have a flag that enables a
   trigger to update the canvas with the new color indices, to maintain the image,
   if that's what's desired (we may've changed the palette deliberately to
