@@ -281,6 +281,14 @@ module Gifenc
     # @return [Point] Origin of coordinates.
     ORIGIN = Point.new(0, 0)
 
+    # The point representing the first vector of the canonical base.
+    # @return [Point] First canonical vector.
+    E1 = Point.new(1, 0)
+
+    # The point representing the second vector of the canonical base.
+    # @return [Point] Second canonical vector.
+    E2 = Point.new(0, 1)
+
     # Finds the endpoint of a line given the startpoint and something else.
     # Namely, either of the following:
     # * The displacement vector (`vector`).
@@ -378,13 +386,14 @@ module Gifenc
     # @raise [Exception::CanvasError] If the points are not contained in the
     #   bounding box and `silent` has not been set.
     def self.bound_check(points, bbox, silent = false)
+      points.map!{ |p| Point.parse(p) }
       outer_points = points.select{ |p|
-        !p[0].between?(bbox[0], bbox[0] + bbox[2] - 1) ||
-        !p[1].between?(bbox[1], bbox[1] + bbox[3] - 1)
+        !p.x.between?(bbox[0], bbox[0] + bbox[2] - 1) ||
+        !p.y.between?(bbox[1], bbox[1] + bbox[3] - 1)
       }
       if outer_points.size > 0
         return false if silent
-        points_str = outer_points.take(3).map{ |p| "(#{p[0]}, #{p[1]})" }
+        points_str = outer_points.take(3).map{ |p| "(#{p.x}, #{p.y})" }
                                  .join(', ') + '...'
         raise Exception::CanvasError, "Out of bounds pixels found: #{points_str}"
       end

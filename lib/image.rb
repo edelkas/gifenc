@@ -231,6 +231,28 @@ module Gifenc
       @gce.trans_color = value
     end
 
+    # Fetch one row of pixels from the image.
+    # @param row [Integer] The index of the row to fetch.
+    # @return [Array<Integer>] The row of pixels.
+    # @raise [Exception::CanvasError] If the row is out of bounds.
+    def row(row)
+      if row < 0 || row >= @height
+        raise Exception::CanvasError, "Row out of bounds."
+      end
+      @pixels[row * @width, @width]
+    end
+
+    # Fetch one column of pixels from the image.
+    # @param col [Integer] The index of the column to fetch.
+    # @return [Array<Integer>] The column of pixels.
+    # @raise [Exception::CanvasError] If the column is out of bounds.
+    def col(col)
+      if col < 0 || col >= @width
+        raise Exception::CanvasError, "Column out of bounds."
+      end
+      @height.times.map{ |r| @pixels[col, r] }
+    end
+
     # Change the pixel data (color indices) of the image. The size of the array
     # must match the current dimensions of the canvas, otherwise a manual resize
     # is first required.
@@ -244,6 +266,42 @@ module Gifenc
           resize the image first."
       end
       @pixels = pixels
+      self
+    end
+
+    # Copy a rectangular region from another image to this one. The offsets and
+    # dimensions of the region can be specified.
+    # @note The two images are assumed to have the same color table, since what
+    #   is copied is the color indexes.
+    # @param source [Image] The source image to copy the contents from.
+    # @param offset [Array<Integer>] The coordinates of the offset of the region
+    #   in the source image.
+    # @param dim [Array<Integer>] The dimensions of the region, in the form `[W, H]`,
+    #   where W is the width and H is the height of the rectangle to copy.
+    # @param dest [Array<Integer>] The coordinates of the destination offset of
+    #   the region in this image.
+    # @raise [Exception::CanvasError] If the region is out of bounds in either
+    #   the source or the destination images.
+    # @return (see #initialize)
+    def copy(source: nil, offset: [0, 0], dim: [1, 1], dest: [0, 0])
+      offset = Geometry::Point.parse(offset)
+      dim    = Geometry::Point.parse(dim)
+      dest   = Geometry::Point.parse(dest)
+      if !source.bound_check(offset) || !source.bound_check(offset + dim - [1, 1])
+        raise Exception::CanvasError, "Cannot copy, region out of bounds in source image."
+      end
+      if !bound_check(dest) || !bound_check(dest + dim - [1, 1])
+        raise Exception::CanvasError, "Cannot copy, region out of bounds in destination image."
+      end
+
+      dx = dest.x.round
+      dy = dest.y.round
+      ox = offset.x.round
+      oy = offset.y.round
+      dim.y.round.times.each{ |y|
+        @pixels[(dy + y) * @width + dx, dim.x.round] = source.pixels[(oy + y) * source.width + ox, dim.x.round]
+      }
+
       self
     end
 
@@ -323,8 +381,8 @@ module Gifenc
     # @return [Array<Integer>] The list of colors, in the same order.
     # @raise [Exception::CanvasError] If any of the specified points is out of bounds.
     def get(points)
-      bound_check(points.min_by(&:first)[0], points.min_by(&:last)[1])
-      bound_check(points.max_by(&:first)[0], points.max_by(&:last)[1])
+      bound_check([points.min_by(&:first)[0], points.min_by(&:last)[1]], false)
+      bound_check([points.max_by(&:first)[0], points.max_by(&:last)[1]], false)
       points.map{ |p|
         @pixels[p[1] * @width + p[0]]
       }
@@ -341,8 +399,8 @@ module Gifenc
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If any of the specified points is out of bounds.
     def set(points, colors)
-      bound_check(points.min_by(&:first)[0], points.min_by(&:last)[1])
-      bound_check(points.max_by(&:first)[0], points.max_by(&:last)[1])
+      bound_check([points.min_by(&:first)[0], points.min_by(&:last)[1]], false)
+      bound_check([points.max_by(&:first)[0], points.max_by(&:last)[1]], false)
       single = colors.is_a?(Integer)
       points.each_with_index{ |p, i|
         @pixels[p[1] * @width + p[0]] = single ? color & 0xFF : colors[i] & 0xFF
@@ -542,11 +600,13 @@ module Gifenc
       end
     end
 
-    private
-
-    # Ensure the provided point is within the image's bounds.
-    def bound_check(x, y, silent = false)
-      Geometry.bound_check([[x, y]], [0, 0, @width, @height], silent)
+    # Ensure the given point is within the image's bounds.
+    # @param point [Point] The point to check. Can be provided as a tuple of
+    #   coordinates `[X, Y]`, or as a {Geometry::Point} object.
+    # @param silent [Boolean] Whether to raise an exception or simply return
+    #   false if the bound check fails.
+    def bound_check(point, silent = true)
+      Geometry.bound_check([point], [0, 0, @width, @height], silent)
     end
 
   end
