@@ -488,6 +488,8 @@ module Gifenc
     def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1)
       # Check coordinates
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
+      bound_check([x0, y0])
+      bound_check([x1, y1])
 
       # Fill rectangle, if provided
       if fill
@@ -518,6 +520,33 @@ module Gifenc
       end
 
       self
+    end
+
+    def circle(c, r, stroke = nil, fill = nil, weight: 1)
+      c = Geometry::Point.parse(c)
+      e1 = Geometry::E1
+      e2 = Geometry::E2
+      upper = (c - e2 * r).round
+      lower = (c + e2 * r).round
+      left  = (c - e1 * r).round
+      right = (c + e1 * r).round
+      if !Geometry.bound_check([upper, lower, left, right], self, true)
+        raise Exception::CanvasError, "Circle out of bounds."
+      end
+
+      if fill
+        (1 .. r.round).each{ |y|
+          midpoint1 = ((c.y - y) * @width + c.x).round
+          midpoint2 = ((c.y + y) * @width + c.x).round
+          partial_r = ((r ** 2 - (y - 0.5) ** 2) ** 0.5).round
+          @pixels[midpoint1 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1)
+          @pixels[midpoint2 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1)
+        }
+        @pixels[(c.y * @width + c.x) - r.round, 2 * r.round + 1] = [fill] * (2 * r.round + 1)
+      end
+
+      self
+
     end
 
     # Represents a type of drawing brush, and encapsulates all the logic necessary
@@ -606,7 +635,7 @@ module Gifenc
     # @param silent [Boolean] Whether to raise an exception or simply return
     #   false if the bound check fails.
     def bound_check(point, silent = true)
-      Geometry.bound_check([point], [0, 0, @width, @height], silent)
+      Geometry.bound_check([point], self, silent)
     end
 
   end

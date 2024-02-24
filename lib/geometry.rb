@@ -386,6 +386,7 @@ module Gifenc
     # @raise [Exception::CanvasError] If the points are not contained in the
     #   bounding box and `silent` has not been set.
     def self.bound_check(points, bbox, silent = false)
+      bbox = [0, 0, bbox.width, bbox.height] if bbox.is_a?(Image)
       points.map!{ |p| Point.parse(p) }
       outer_points = points.select{ |p|
         !p.x.between?(bbox[0], bbox[0] + bbox[2] - 1) ||
