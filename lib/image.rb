@@ -522,7 +522,27 @@ module Gifenc
       self
     end
 
-    def circle(c, r, stroke = nil, fill = nil, weight: 1)
+    # Draw a circle with the given properties.
+    # @param c [Array<Integer>] The X and Y coordinates of the circle's center.
+    # @param r [Float] The radius of the circle, in pixels. It can be non-integer,
+    #   which will affect the intermediate calculations and result in a different
+    #   final shape, which is in-between the ones corresponding to the integer
+    #   values below and above for the radius.
+    # @param stroke [Integer] Index of the color of the border. The border is
+    #   drawn inside the circle, i.e., the supplied radius is not enlarged for
+    #   the border. Leave `nil` for no border.
+    # @param fill [Integer] Index of the color for the filling of the circle.
+    #   Leave `nil` for no filling.
+    # @param weight [Integer] Thickness of the border, in pixels.
+    # @param style [Symbol] Style of the border. If `:smooth`, the border will
+    #   approximate a circular shape as much as possibe. If `:grid`, each
+    #   additional unit of weight is added by simply drawing an additional layer
+    #   of points inside the circle with the border's color.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If the circle would go out of bounds.
+    def circle(c, r, stroke = nil, fill = nil, weight: 1, style: :smooth)
+      # Parse data
+      return self if !stroke && !fill
       c = Geometry::Point.parse(c)
       e1 = Geometry::E1
       e2 = Geometry::E2
@@ -533,16 +553,50 @@ module Gifenc
       if !Geometry.bound_check([upper, lower, left, right], self, true)
         raise Exception::CanvasError, "Circle out of bounds."
       end
+      weight = [weight.to_i, 1].max
+      if weight > r
+        fill = stroke
+        stroke = nil
+      end
 
+      # Fill
       if fill
-        (1 .. r.round).each{ |y|
+        prev_r = 0
+        r.round.downto(0).each{ |y|
           midpoint1 = ((c.y - y) * @width + c.x).round
-          midpoint2 = ((c.y + y) * @width + c.x).round
-          partial_r = ((r ** 2 - (y - 0.5) ** 2) ** 0.5).round
+          midpoint2 = ((c.y + y) * @width + c.x).round if y > 0
+          partial_r = (y > 0 ? (r ** 2 - (y - 0.5) ** 2) ** 0.5 : r).round
           @pixels[midpoint1 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1)
-          @pixels[midpoint2 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1)
+          @pixels[midpoint2 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1) if y > 0
         }
-        @pixels[(c.y * @width + c.x) - r.round, 2 * r.round + 1] = [fill] * (2 * r.round + 1)
+      end
+
+      # Stroke
+      if stroke
+        prev_r = 0
+        r.round.downto(0).each{ |y|
+          midpoint1 = ((c.y - y) * @width + c.x).round
+          midpoint2 = ((c.y + y) * @width + c.x).round if y > 0
+          partial_r = (y > 0 ? (r ** 2 - (y - 0.5) ** 2) ** 0.5 : r).round
+          if style == :grid
+            border = [weight + partial_r - prev_r, 1 + partial_r].min
+            (0 ... [weight, y + 1].min).each{ |w|
+              @pixels[midpoint1 - partial_r                + w * @width, border] = [stroke] * border
+              @pixels[midpoint1 + partial_r - (border - 1) + w * @width, border] = [stroke] * border
+              @pixels[midpoint2 - partial_r                - w * @width, border] = [stroke] * border if y > 0
+              @pixels[midpoint2 + partial_r - (border - 1) - w * @width, border] = [stroke] * border if y > 0
+            }
+            prev_r = partial_r
+          elsif style == :smooth
+            r2 = [r - weight, 0].max
+            partial_r2 = (y > 0 ? (r2 >= y - 0.5 ? (r2 ** 2 - (y - 0.5) ** 2) ** 0.5 : -1) : r2).round
+            border = partial_r - partial_r2
+            @pixels[midpoint1 - partial_r               , border] = [stroke] * border
+            @pixels[midpoint1 + partial_r - (border - 1), border] = [stroke] * border
+            @pixels[midpoint2 - partial_r               , border] = [stroke] * border if y > 0
+            @pixels[midpoint2 + partial_r - (border - 1), border] = [stroke] * border if y > 0
+          end
+        }
       end
 
       self

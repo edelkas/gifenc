@@ -1,3 +1,9 @@
+- Add an Image method to compress the pixels. This should substitute @pixels with
+  the LZW-encoded version, to save memory when encoding GIFs with many frames.
+  Safety guards have to be added, since after this is done, the image can no
+  longer be modified, or at least, not without decompressing it. Also, add a
+  keyword option in the constructor that enabled "auto-compress", which would
+  automatically compress the previous frames when a new one gets added to the GIF.
 - Allow to work in 2 modes: palette mode and canvas mode. Palette mode you work
   with the color indices directly (with helpers), and canvas mode you work with
   the colors and then eventually the palette needs to be created based on those
