@@ -629,6 +629,45 @@ module Gifenc
       ellipse(c, [r, r], stroke, fill, weight: weight, style: style)
     end
 
+    # Draw a 2D parameterized curve. A lambda function containing the mathematical
+    # expression for each coordinate must be passed.
+    # @param func [Lambda] A lambda function that takes in a single floating
+    #   point parameter (the time) and outputs the pair of coordinates `[X, Y]`
+    #   corresponding to the curve at that given instant.
+    # @param from [Float] The starting time to begin plotting the curve, i.e.,
+    #   the initial value of the time parameter for the lambda.
+    # @param to [Float] The ending time to finish plotting the curve, i.e.,
+    #   the final value of the time parameter for the lambda.
+    # @param step [Float] The time step to use. Will plot the points of the curve
+    #   corresponding precisely to these time steps. Alternatively, one may supply
+    #   the `dots` argument.
+    # @param dots [Integer] The amount of points to plot. The plotting interval
+    #   will be divided into this many chunks, and a single point will be plotted
+    #   for each of these.
+    # @param color [Integer] The index of the color to use for the trace.
+    # @param weight [Float] The size of the brush to use for the trace.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If the curve goes out of bounds.
+    # @todo Add a way to automatically compute the time step with a reasonable
+    #   value, without having to explicitly send the step or the dots.
+    def curve(func, from, to, step: nil, dots: nil, color: 0, weight: 1)
+      if !step && !dots
+        raise Exception::GeometryError, "Cannot infer the curve's drawing density,|
+          please specify either the step or the dots argument."
+      end
+      step = (to - from) / (dots + 1) if !step
+      brush = Brush.square(weight, color)
+
+      t = from
+      while t <= to
+        p = func.call(t)
+        brush.draw(p[0].round, p[1].round, self)
+        t += step
+      end
+
+      self
+    end
+
     # Represents a type of drawing brush, and encapsulates all the logic necessary
     # to use it, such as the weight, shape, anchor point, color, etc.
     class Brush

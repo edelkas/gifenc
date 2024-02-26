@@ -39,6 +39,7 @@
   these two policies.
 - What happens if some frames have GCE and some don't?
 - Should the transparency index appear when the transparency bit is not set?
+- Different brush types (not just square, now that we have circles and ellipses)
 - Add Rake tests
 - Add exception handling to most functions
 - Add logging (log, warn, err, lex...)
