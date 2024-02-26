@@ -340,10 +340,11 @@ module Gifenc
     #   `[X, Y]` are the coordinates of the upper left corner of the rectangle,
     #   and `[W, H]` are its width and height, respectively.
     def self.bbox(points, pad = 0)
-      x0 = points.min_by(&:first)[0] - pad
-      y0 = points.min_by(&:last)[1] - pad
-      x1 = points.max_by(&:first)[0] + pad
-      y1 = points.max_by(&:last)[1] + pad
+      points = points.map{ |p| Point.parse(p) }
+      x0 = points.min_by(&:x).x - pad
+      y0 = points.min_by(&:y).y - pad
+      x1 = points.max_by(&:x).x + pad
+      y1 = points.max_by(&:y).y + pad
       [x0, y0, x1 - x0 + 1, y1 - y0 + 1]
     end
 
@@ -356,7 +357,9 @@ module Gifenc
     #   the supplied points.
     # @return [Array<Array<Integer>>] The list of translated points.
     def self.translate(points, vector)
-      points.map{ |p| [p[0] + vector[0], p[1] + vector[1]] }
+      points.map!{ |p| Point.parse(p) }
+      vector = Point.parse(vector)
+      points.map{ |p| p + vector }
     end
 
     # Computes the coordinates of a list of points relative to a provided bbox.
@@ -374,6 +377,7 @@ module Gifenc
     #   rectangle, and `[W, H]` are its width and height, respectively.
     # @return [Array<Array<Integer>>] The list of transformed points.
     def self.transform(points, bbox)
+      points.map!{ |p| Point.parse(p) }
       translate(points, [-bbox[0], -bbox[1]])
     end
 

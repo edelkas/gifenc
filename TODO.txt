@@ -23,8 +23,9 @@
   to any color), grayscale, quantization, color shifting, etc.
 - Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
+- Geometry: Convex hull
 - Drawing: Bucket tool
-- Drawing: Grid, geometric shapes (e.g. ellipses), patterns (like in Excel)...
+- Drawing: Grid, geometric shapes (e.g. polygons), patterns (like in Excel)...
 - Polar coordinates, parameterized curves, etc.
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT, or at least, have
