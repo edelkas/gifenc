@@ -321,12 +321,12 @@ module Gifenc
           direction = Point.parse(direction).normalize
         else
           raise Exception::CanvasError, "The angle must be specified if no direction is provided." if !angle
-          direction = Point.new([Math.cos(angle), Math.sin(angle)])
+          direction = Point.new(Math.cos(angle), Math.sin(angle))
         end
         x1 = (point.x + length * direction.x).to_i
         y1 = (point.y + length * direction.y).to_i
       end
-      Point.new([x1, y1])
+      Point.new(x1, y1)
     end
 
     # Finds the bounding box of a set of points, i.e., the minimal rectangle

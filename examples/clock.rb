@@ -33,7 +33,7 @@ gif.images << Gifenc::Image.new(DIM, DIM, color: 3, delay: 2)
   )
   gif.images.first.line(p1: endpoint_1, p2: endpoint_2, color: 2)
 }
-gif.images.first.rect(2, 2, DIM - 2, DIM - 2, 1, weight: 3)
+gif.images.first.rect(0, 0, DIM, DIM, 1, weight: 3)
 
 # Draw clock hand moving
 STEPS.times.each{ |i|
