@@ -458,7 +458,7 @@ module Gifenc
         a = (p2 - p1).normal_right.normalize_inf
         a -= a * (1 - anchor)
       end
-      steps = [(p2.x - p1.x).abs, (p2.y - p1.y).abs].max.round + 1
+      steps = (p2 - p1).norm_inf.ceil + 1
       delta = (p2 - p1) / [(steps - 1), 1].max
       point = p1
       brush = Brush.square(weight, color, [a.x, a.y])
@@ -544,7 +544,7 @@ module Gifenc
       return self if !stroke && !fill
       a = r[0]
       b = r[1]
-      c = Geometry::Point.parse(c)
+      c = Geometry::Point.parse(c).round
       e1 = Geometry::E1
       e2 = Geometry::E2
       upper = (c - e2 * b).round
@@ -554,16 +554,17 @@ module Gifenc
       if !Geometry.bound_check([upper, lower, left, right], self, true)
         raise Exception::CanvasError, "Ellipse out of bounds."
       end
-      weight = [weight.to_i, 1].max
-      if weight > [a, b].min
-        fill = stroke
-        stroke = nil
+      if stroke
+        weight = [weight.to_i, 1].max
+        if weight > [a, b].min
+          fill = stroke
+          stroke = nil
+        end
       end
       f = (a.to_f / b) ** 2
 
       # Fill
       if fill
-        prev_r = 0
         b.round.downto(0).each{ |y|
           midpoint1 = ((c.y - y) * @width + c.x).round
           midpoint2 = ((c.y + y) * @width + c.x).round if y > 0
@@ -604,7 +605,6 @@ module Gifenc
       end
 
       self
-
     end
 
     # Draw a circle with the given properties.
@@ -620,13 +620,37 @@ module Gifenc
     #   Leave `nil` for no filling.
     # @param weight [Integer] Thickness of the border, in pixels.
     # @param style [Symbol] Style of the border. If `:smooth`, the border will
-    #   approximate a circular shape as much as possibe. If `:grid`, each
+    #   approximate a circular shape as much as possible. If `:grid`, each
     #   additional unit of weight is added by simply drawing an additional layer
     #   of points inside the circle with the border's color.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the circle would go out of bounds.
     def circle(c, r, stroke = nil, fill = nil, weight: 1, style: :smooth)
       ellipse(c, [r, r], stroke, fill, weight: weight, style: style)
+    end
+
+    # Draw a polygonal chain connecting a sequence of points. This simply consists
+    # in joining them in order with straight lines.
+    # @param points [Array<Point>] The list of points, in order, to join.
+    # @param line_color [Integer] The index of the color to use for the lines.
+    # @param line_weight [Float] The size of the line stroke, in pixels.
+    # @param node_color [Integer] The index of the color to use for the nodes.
+    #   Default (`nil`) is the same as the line color.
+    # @param node_weight [Float] The radius of the node circles, in pixels. If `0`,
+    #   no nodes will be drawn.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If the chain would go out of bounds. The
+    #   segments that are within bounds will be drawn, even if they come after
+    #   an out of bounds segment.
+    def polygonal(points, line_color: 0, line_weight: 1, node_color: nil,
+        node_weight: 0
+      )
+      node_color = line_color unless node_color
+      0.upto(points.size - 2).each{ |i|
+        line(p1: points[i], p2: points[i + 1], color: line_color, weight: line_weight) rescue nil
+      }
+      points.each{ |p| circle(p, node_weight, nil, node_color) }
+      self
     end
 
     # Draw a 2D parameterized curve. A lambda function containing the mathematical
@@ -638,34 +662,41 @@ module Gifenc
     #   the initial value of the time parameter for the lambda.
     # @param to [Float] The ending time to finish plotting the curve, i.e.,
     #   the final value of the time parameter for the lambda.
-    # @param step [Float] The time step to use. Will plot the points of the curve
-    #   corresponding precisely to these time steps. Alternatively, one may supply
-    #   the `dots` argument.
+    # @param step [Float] The time step to use. The points of the curve resulting
+    #   from this time step will be joined via straight lines. The smaller the,
+    #   time step, the smoother the curve will look, resolution permitting.
+    #   Alternatively, one may supply the `dots` argument.
     # @param dots [Integer] The amount of points to plot. The plotting interval
-    #   will be divided into this many chunks, and a single point will be plotted
-    #   for each of these.
-    # @param color [Integer] The index of the color to use for the trace.
-    # @param weight [Float] The size of the brush to use for the trace.
+    #   will be divided into this many segments of equal size, and the resulting
+    #   points will be joined via straight lines. The more dots, the smoother the
+    #   curve will look. Alternatively, one may supply the `step` argument.
+    # @param line_color [Integer] The index of the color to use for the trace.
+    # @param line_weight [Float] The size of the brush to use for the trace.
+    # @param node_color [Integer] The index of the color to use for the node
+    #   circles. If `nil` (default), the line color will be used.
+    # @param node_weight [Float] The radius of the node circles. If `0` (default),
+    #   nodes joining each segment of the curve will not be drawn.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the curve goes out of bounds.
     # @todo Add a way to automatically compute the time step with a reasonable
     #   value, without having to explicitly send the step or the dots.
-    def curve(func, from, to, step: nil, dots: nil, color: 0, weight: 1)
+    def curve(func, from, to, step: nil, dots: nil, line_color: 0, line_weight: 1,
+      node_color: nil, node_weight: 0)
       if !step && !dots
         raise Exception::GeometryError, "Cannot infer the curve's drawing density,|
           please specify either the step or the dots argument."
       end
-      step = (to - from) / (dots + 1) if !step
-      brush = Brush.square(weight, color)
-
-      t = from
-      while t <= to
-        p = func.call(t)
-        brush.draw(p[0].round, p[1].round, self)
-        t += step
-      end
+      step = (to - from).abs / (dots + 1) if !step
+      points = (from .. to).step(step).map{ |t| func.call(t) }
+      node_color = line_color unless node_color
+      polygonal(points, line_color: line_color, line_weight: line_weight,
+        node_color: node_color, node_weight: node_weight)
 
       self
+    end
+
+    def spiral(center)
+
     end
 
     # Represents a type of drawing brush, and encapsulates all the logic necessary

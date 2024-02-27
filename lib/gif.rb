@@ -215,7 +215,7 @@ module Gifenc
     #   twice in a row (at the start, and at the end). Useful for non-looping
     #   boomerangs.
     # @return [Gif] The GIF object.
-    def boomerang(first = false)
+    def boomerang(first: false)
       (@images.size - 2).downto(first ? 0 : 1).each{ |i|
         @images << @images[i].dup
       }
