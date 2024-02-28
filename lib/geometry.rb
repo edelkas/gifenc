@@ -24,14 +24,17 @@ module Gifenc
       # * An array, in which case it creates a new point whose coordinates are
       #   the values of the array.
       # @param point [Point,Array<Integer>] The parameter to parse the point from.
+      # @param system [Symbol] The coordinate system to use for parsing the
+      #   coordinates. It may be `:cartesian` or `:polar`.
       # @return [Point] The parsed point object.
       # @raise [Exception::GeometryError] When a point couldn't be parsed from the supplied
       #   argument.
-      def self.parse(point)
+      def self.parse(point, sys = :cartesian)
         if point.is_a?(Point)
           point
         elsif point.is_a?(Array)
-          Point.new(point[0], point[1])
+          p = Point.new(point[0], point[1])
+          sys == :cartesian ? p : parse(p.polar)
         else
           raise Exception::GeometryError, "Couldn't parse point from argument."
         end
@@ -47,6 +50,24 @@ module Gifenc
         @x = x.to_f
         @y = y.to_f
       end
+
+      # Return the standard (Cartesian) coordinates of the point. This consists
+      # on the X and Y values.
+      # @return [Array<Float>] Cartesian coordinates of the point.
+      def coords_cartesian
+        [@x, @y]
+      end
+
+      alias_method :coords, :coords_cartesian
+
+      # Return the polar coordinates of the point. This consists on the module
+      # (euclidean norm) and argument (angle between -PI and PI).
+      # @return [Array<Float>] Polar coordinates of the point.
+      def coords_polar
+        [mod, arg]
+      end
+
+      alias_method :polar, :coords_polar
 
       # Compute the left-hand (CCW) normal vector.
       # @return [Point] The left-hand normal vector.
@@ -89,6 +110,7 @@ module Gifenc
       end
 
       alias_method :norm_2, :norm
+      alias_method :mod, :norm
 
       # Shortcut to compute the infinity (maximum) norm of the vector.
       # @return [Float] The infinity norm of the vector.
@@ -134,6 +156,15 @@ module Gifenc
         normalize_gen(norm_inf)
       end
 
+      # Return the angle (argument) of the point. It is expressed in radian,
+      # between -PI and PI.
+      # @return [Float] Angle of the point.
+      def angle
+        Math.atan2(@y, @x)
+      end
+
+      alias_method :arg, :angle
+
       # Add another point to this one.
       # @param p [Point] The other point.
       # @return [Point] The new point.
@@ -164,11 +195,20 @@ module Gifenc
         Point.new(-@x, -@y)
       end
 
-      # Scale the point by a factor.
-      # @param s [Float] The factor to scale the point.
-      # @return (see #+)
-      def *(s)
-        Point.new(@x * s, @y * s)
+      # Scale a point or compute the dot product of two points.
+      # * If `arg` is Numeric, the point will be scaled by that factor. The
+      #   return value will then be a new Point.
+      # * If `arg` is a Point, the scalar product of the two points will be
+      #   computed. The return value will then be a Float.
+      # @param arg [Numeric,Point] The factor to scale the point.
+      # @return [Point,Float] The scaled point or the scalar product.
+      def *(arg)
+        if Numeric === arg
+          Point.new(@x * s, @y * s)
+        else
+          p = parse(arg)
+          @x * p.x + @y * p.y
+        end
       end
 
       # Scale the point by the inverse of a factor.

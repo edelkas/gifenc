@@ -2,6 +2,8 @@ Roadmap:
   0.2.0
     Geometry (dot product, projections, reflections, convex hull), Drawing (convex
     hull, polygons, function graphs, flood fill)
+  0.2.1
+    Font parsing, Text rendering
   0.3.0
     Decoding (everything I can currently encode)
     Compressed mode (compress each frame on the fly to save memory)
