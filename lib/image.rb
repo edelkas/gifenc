@@ -695,8 +695,67 @@ module Gifenc
       self
     end
 
-    def spiral(center)
+    # Draw a general spiral given by its scale functions in either direction.
+    # These functions specify, in terms of the time, how the spiral grows
+    # horizontally and vertically. For instance, a linear function would yield
+    # a spiral of constant growth, i.e., an Archimedean spiral.
+    # @param from [Float] The starting time to begin plotting the curve.
+    # @param to [Float] The final time to end the plot.
+    # @param center [Array<Integer>] The coordinates of the center of the spiral.
+    # @param angle [Float] Initial angle of the spiral.
+    # @param scale_x [Lambda(Float)] The function that specifies the spiral's
+    #   growth in the X direction in terms of time.
+    # @param scale_y [Lambda(Float)] The function that specifies the spiral's
+    #   growth in the Y direction in terms of time.
+    # @param speed [Float] Speed at which the spiral is traversed.
+    # @param color [Integer] Index of the line's color.
+    # @param weight [Float] Size of the line.
+    # @param control_points [Integer] The amount of control points to use per
+    #   quadrant when drawing the spiral. The higher, the smoother the curve.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If the spiral would go out of bounds.
+    def spiral_general(
+        from, to,
+        center: [@width / 2, @height / 2],
+        angle: 0,
+        scale_x: -> (t) { t },
+        scale_y: -> (t) { t },
+        speed: 1,
+        color: 0,
+        weight: 1,
+        control_points: 64
+      )
+      center = Geometry::Point.parse(center)
+      curve(
+        -> (t) {
+          [
+            center.x + scale_x.call(t) * Math.cos(angle + speed * t),
+            center.y + scale_y.call(t) * Math.sin(angle + speed * t)
+          ]
+        },
+        from, to, step: 2 * Math::PI / control_points,
+        line_color: color, line_weight: weight
+      )
+      self
+    end
 
+    # Draw an Archimedean spiral. This type of spiral is the simplest case,
+    # which grows at a constant rate on either direction.
+    # @param center [Array<Integer>] The coordinates of the center of the spiral.
+    # @param step [Float] Distance between spiral's loops.
+    # @param loops [Float] How many loops to draw.
+    # @param angle [Float] Initial spiral angle.
+    # @param color [Integer] Index of the line's color.
+    # @param weight [Float] Size of the line.
+    # @return (see #initialize)
+    # @raise (see #spiral_general)
+    def spiral(center, step, loops, angle: 0, color: 0, weight: 1)
+      spiral_general(
+        0, loops * 2 * Math::PI, center: center, angle: angle,
+        scale_x: -> (t) {step * t / (2 * Math::PI) },
+        scale_y: -> (t) {step * t / (2 * Math::PI) },
+        color: color, weight: weight
+      )
     end
 
     # Represents a type of drawing brush, and encapsulates all the logic necessary
