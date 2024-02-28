@@ -1,3 +1,16 @@
+Roadmap:
+  0.2.0
+    Geometry (dot product, projections, reflections, convex hull), Drawing (convex
+    hull, polygons, function graphs, flood fill)
+  0.3.0
+    Decoding (everything I can currently encode)
+    Compressed mode (compress each frame on the fly to save memory)
+  0.4.0
+    Full GIF specs (Plain Text & Comment extensions, interlacing)
+  0.4.1
+    Add Rake tests, slowly add new features
+    LZW code size below 8 bits
+
 - Add an Image method to compress the pixels. This should substitute @pixels with
   the LZW-encoded version, to save memory when encoding GIFs with many frames.
   Safety guards have to be added, since after this is done, the image can no

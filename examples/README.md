@@ -1,4 +1,5 @@
-The following GIFs have been generated with the code samples present in this folder. The corresponding GIF files are available in the `res` folder.
+The following animated GIFs have been generated with the code samples present in this folder. The corresponding GIF files are available in the `res` folder.
+**Note**: Depending on your settings and browser, you may need to click on them or hit play to begin playback.
 
 |Description|GIF|
 |---|:---:|
