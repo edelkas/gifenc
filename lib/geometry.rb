@@ -2,13 +2,18 @@ module Gifenc
   # This module encapsulates all the necessary geometric functionality, and
   # more generally, all mathematical methods that may be useful for several
   # tasks of the library, such as drawing, resampling, etc.
+  #
+  # Every method that takes a point as argument may be supplied by providing
+  # either a `Point` or a `[Float, Float]` array representing its coordinates,
+  # regardless of whether the documentation has one or the other in the method's
+  # specification.
   module Geometry
 
-    # Represents a point in the plane. It's essentially a wrapper for an integer
+    # Represents a point in the plane. It's essentially a wrapper for an Float
     # array with 2 elements (the coordinates) and many geometric methods that
-    # aid working with them. It is used indistinctly for both points and vectors.
-    # @todo Add reflections, dot product and projections, and implement this class
-    #    in drawing methods such as line or rect.
+    # aid working with them. It is used indistinctly for both points and vectors,
+    # and will be denoted as such throughout the code, depending on which
+    # interpretation is more relevant.
     class Point
 
       # The X coordinate of the point.
@@ -18,6 +23,23 @@ module Gifenc
       # The Y coordinate of the point.
       # @return [Integer] Y coordinate.
       attr_accessor :y
+
+      # Convert polar coordinates to rectangular (Cartesian) coordinates.
+      # @param mod [Float] The point's module (euclidean norm).
+      # @param arg [Float] The point's argument (angle with respect to the
+      #   positive X axis).
+      # @return [Array<Float>] The corresponding Cartesian coordinates.
+      def self.polar2rect(mod, arg)
+        [mod * Math.cos(arg), mod * Math.sin(arg)]
+      end
+
+      # Convert rectangular (Cartesian) coordinates to polar coordinates.
+      # @param x [Float] The point's X coordinate.
+      # @param y [Float] The point's Y coordinate.
+      # @return [Array<Float>] The corresponding polar coordinates.
+      def self.rect2polar(x, y)
+        [(x ** 2  + y ** 2) ** 0.5, Math.atan2(y, x)]
+      end
 
       # Parse a point from an arbitrary argument. It accepts either:
       # * A point object, in which case it returns itself.
@@ -33,8 +55,8 @@ module Gifenc
         if point.is_a?(Point)
           point
         elsif point.is_a?(Array)
-          p = Point.new(point[0], point[1])
-          sys == :cartesian ? p : parse(p.polar)
+          point = polar2rect(*point) if sys == :polar
+          new(*point)
         else
           raise Exception::GeometryError, "Couldn't parse point from argument."
         end
@@ -49,6 +71,68 @@ module Gifenc
       def initialize(x, y)
         @x = x.to_f
         @y = y.to_f
+      end
+
+      # Add another point to this one.
+      # @param p [Point] The other point.
+      # @return [Point] The new point.
+      def +(p)
+        p = Point.parse(p)
+        Point.new(@x + p.x, @y + p.y)
+      end
+
+      # Make all coordinates positive. This is equivalent to reflecting the
+      # point about the coordinate axes until it is in the first quadrant.
+      # @return (see #+)
+      def +@
+        Point.new(@x.abs, @y.abs)
+      end
+
+      # Subtract another point to this one.
+      # @param (see #+)
+      # @return (see #+)
+      def -(p)
+        p = Point.parse(p)
+        Point.new(@x - p.x, @y - p.y)
+      end
+
+      # Take the opposite point with respect to the origin. This is equivalent
+      # to performing half a rotation about the origin.
+      # @return (see #-)
+      def -@
+        Point.new(-@x, -@y)
+      end
+
+      # Scale a point or compute the dot product of two points.
+      # * If `arg` is Numeric, the point will be scaled by that factor. The
+      #   return value will then be a new Point.
+      # * If `arg` is a Point, the scalar product of the two points will be
+      #   computed. The return value will then be a Float.
+      # @param arg [Numeric,Point] The factor to scale the point.
+      # @return [Point,Float] The scaled point or the scalar product.
+      def *(arg)
+        if Numeric === arg
+          Point.new(@x * s, @y * s)
+        else
+          p = Point.parse(arg)
+          @x * p.x + @y * p.y
+        end
+      end
+
+      # Scale the point by the inverse of a factor.
+      # @param (see #*)
+      # @return (see #+)
+      def /(s)
+        Point.new(@x / s, @y / s)
+      end
+
+      # Project the point onto the given vector. The supplied vector need not be
+      # unitary, as it will be normalized automatically.
+      # @param (see #+)
+      # @return [Point] The new projected point.
+      def |(p)
+        u = Point.parse(p).normalize
+        u * (self * u)
       end
 
       # Return the standard (Cartesian) coordinates of the point. This consists
@@ -156,64 +240,39 @@ module Gifenc
         normalize_gen(norm_inf)
       end
 
+      # Compute the Euclidean distance between two points.
+      # @param (see #+)
+      # @return
+      def distance(p)
+        (self - Point.parse(p)).norm
+      end
+
+      # Project the point onto a line. The line might be supplied by providing
+      # either of the following 3 options:
+      # * Two different points from the line.
+      # * A point and a direction vector (not necessarily normalized).
+      # * A point and an angle.
+      # At least one point is therefore always required.
+      # @param p1 [Point] A point on the line.
+      # @param p2 [Point] Another point on the line.
+      # @param direction [Point] The direction vector of the line.
+      # @param angle [Float] The angle of the line, in radians.
+      # @return [Point] The projected point on the line.
+      # @raise [Exception::GeometryError] If the line couldn't be determined
+      #   from the supplied arguments.
+      def project(p1: nil, p2: nil, direction: nil, angle: nil)
+        raise Exception::GeometryError, "Couldn't determine line to project onto,\
+          at least one point must be supplied." if !p1 && !p2
+        point = Point.parse(p1 || p2)
+        direction = Geometry.direction(p1: p1, p2: p2, angle: angle) unless direction
+        (self - point) - ((self - point) | direction)
+      end
+
       # Return the angle (argument) of the point. It is expressed in radian,
       # between -PI and PI.
       # @return [Float] Angle of the point.
       def arg
         Math.atan2(@y, @x)
-      end
-
-      # Add another point to this one.
-      # @param p [Point] The other point.
-      # @return [Point] The new point.
-      def +(p)
-        p = Point.parse(p)
-        Point.new(@x + p.x, @y + p.y)
-      end
-
-      # Make all coordinates positive. This is equivalent to reflecting the
-      # point about the coordinate axes until it is in the first quadrant.
-      # @return (see #+)
-      def +@
-        Point.new(@x.abs, @y.abs)
-      end
-
-      # Subtract another point to this one.
-      # @param (see #+)
-      # @return (see #+)
-      def -(p)
-        p = Point.parse(p)
-        Point.new(@x - p.x, @y - p.y)
-      end
-
-      # Take the opposite point with respect to the origin. This is equivalent
-      # to performing half a rotation about the origin.
-      # @return (see #-)
-      def -@
-        Point.new(-@x, -@y)
-      end
-
-      # Scale a point or compute the dot product of two points.
-      # * If `arg` is Numeric, the point will be scaled by that factor. The
-      #   return value will then be a new Point.
-      # * If `arg` is a Point, the scalar product of the two points will be
-      #   computed. The return value will then be a Float.
-      # @param arg [Numeric,Point] The factor to scale the point.
-      # @return [Point,Float] The scaled point or the scalar product.
-      def *(arg)
-        if Numeric === arg
-          Point.new(@x * s, @y * s)
-        else
-          p = parse(arg)
-          @x * p.x + @y * p.y
-        end
-      end
-
-      # Scale the point by the inverse of a factor.
-      # @param (see #*)
-      # @return (see #+)
-      def /(s)
-        Point.new(@x / s, @y / s)
       end
 
       # Whether the point is null, i.e., close enough to the origin.
@@ -227,7 +286,7 @@ module Gifenc
       # @param (see #+)
       # @return [Float] Angle between the points.
       def angle(p)
-        p = parse(p)
+        p = Point.parse(p)
         Math.acos((self * p) / (norm * p.norm))
       end
 
@@ -235,7 +294,7 @@ module Gifenc
       # @param (see #+)
       # @return [Boolean] Whether the points are orthogonal.
       def orthogonal?(p)
-        (self * parse(p)).abs < PRECISION
+        (self * Point.parse(p)).abs < PRECISION
       end
 
       alias_method :perpendicular?, :orthogonal?
@@ -392,29 +451,44 @@ module Gifenc
     # @param length [Float] The length of the line. Must be provided if either
     #   the `direction` or the `angle` method is being used.
     # @return [Array<Integer>] The [X, Y] coordinates of the line's endpoint.
-    # @raise [Exception::CanvasError] If the supplied parameters don't suffice
+    # @raise [Exception::GeometryError] If the supplied parameters don't suffice
     #   to determine a line (e.g. provided the `angle` but not the `length`).
     def self.endpoint(
         point: nil, vector: nil, direction: nil, angle: nil, length: nil
       )
-      raise Exception::CanvasError, "The line start must be specified." if !point
+      raise Exception::GeometryError, "The line start must be specified." if !point
       point = Point.parse(point)
       if vector
         vector = Point.parse(vector)
         x1 = point.x + vector.x
         y1 = point.y + vector.y
       else
-        raise Exception::CanvasError, "Either the endpoint, the vector or the length must be provided." if !length
+        raise Exception::GeometryError, "Either the endpoint, the vector or the length must be provided." if !length
         if direction
           direction = Point.parse(direction).normalize
         else
-          raise Exception::CanvasError, "The angle must be specified if no direction is provided." if !angle
+          raise Exception::GeometryError, "The angle must be specified if no direction is provided." if !angle
           direction = Point.new(Math.cos(angle), Math.sin(angle))
         end
         x1 = (point.x + length * direction.x).to_i
         y1 = (point.y + length * direction.y).to_i
       end
       Point.new(x1, y1)
+    end
+
+    # Find the unit direction vector of a line given either the endpoints or
+    # the angle.
+    # @param p1 [Point] One point of the line.
+    # @param p2 [Point] Another point of the line.
+    # @param angle [Float] The angle in radians.
+    # @return [Point] The unit direction vector.
+    # @raise [Exception::GeometryError] If not enough information is supplied
+    #   (either the endpoints or the angle is required).
+    def self.direction(p1: nil, p2: nil, angle: nil)
+      return Point.new([1, angle], :polar) if angle
+      raise Exception::GeometryError, "Couldn't parse direction, endpoints or|
+        angle must be supplied." if !p1 || !p2
+      (Point.parse(p1) - Point.parse(p2)).normalize
     end
 
     # Finds the bounding box of a set of points, i.e., the minimal rectangle
