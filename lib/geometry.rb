@@ -159,11 +159,9 @@ module Gifenc
       # Return the angle (argument) of the point. It is expressed in radian,
       # between -PI and PI.
       # @return [Float] Angle of the point.
-      def angle
+      def arg
         Math.atan2(@y, @x)
       end
-
-      alias_method :arg, :angle
 
       # Add another point to this one.
       # @param p [Point] The other point.
@@ -216,6 +214,56 @@ module Gifenc
       # @return (see #+)
       def /(s)
         Point.new(@x / s, @y / s)
+      end
+
+      # Whether the point is null, i.e., close enough to the origin.
+      # @return [Boolean] Whether the point is (close enough to) the origin.
+      def zero?
+        norm < PRECISION
+      end
+
+      # Find the angle between this point and the given one. The angle will be
+      # in the interval [0, PI].
+      # @param (see #+)
+      # @return [Float] Angle between the points.
+      def angle(p)
+        p = parse(p)
+        Math.acos((self * p) / (norm * p.norm))
+      end
+
+      # Find whether the given point is perpendicular to this one.
+      # @param (see #+)
+      # @return [Boolean] Whether the points are orthogonal.
+      def orthogonal?(p)
+        (self * parse(p)).abs < PRECISION
+      end
+
+      alias_method :perpendicular?, :orthogonal?
+
+      # Find whether the given point / vector is parallel (proportional) to
+      # this one.
+      # @param (see #+)
+      # @return [Boolean] Whether the points are parallel.
+      def parallel?(p)
+        angle(p).abs < PRECISION
+      end
+
+      # Find whether the points are positively aligned. This means that their
+      # scalar product is positive, and implies that they form an acute angle,
+      # i.e., they go roughly in the same direction.
+      # @param (see #+)
+      # @return [Boolean] Whether the points are positively aligned.
+      def positive?(p)
+        self * p > 0
+      end
+
+      # Find whether the points are negatively aligned. This means that their
+      # scalar product is negative, and implies that they form an obtuse angle,
+      # i.e., they go roughly in the opposite direction.
+      # @param (see #+)
+      # @return [Boolean] Whether the points are negatively aligned.
+      def negative?(p)
+        self * p < 0
       end
 
       # Rotate the point by a certain angle about a given center.
@@ -306,7 +354,7 @@ module Gifenc
 
       # Normalize the vector with respect to an arbitrary norm.
       def normalize_gen(norm)
-        raise Exception::GeometryError, "Cannot normalize null vector." if norm < PRECISION
+        raise Exception::GeometryError, "Cannot normalize null vector." if zero?
         Point.new(@x / norm, @y / norm)
       end
 
