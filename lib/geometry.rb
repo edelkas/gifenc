@@ -135,6 +135,20 @@ module Gifenc
         u * (self * u)
       end
 
+      # Reflect the point with respect to the given one.
+      # @param (see #+)
+      # @return [Point] The new reflected point.
+      def ^(p)
+        self + (Point.parse(p) - self) * 2
+      end
+
+      # Compute the midpoint between this point and the given one.
+      # @param (see #+)
+      # @return [Point] The midpoint.
+      def &(p)
+        (self + Point.parse(p)) / 2
+      end
+
       # Return the standard (Cartesian) coordinates of the point. This consists
       # on the X and Y values.
       # @return [Array<Float>] Cartesian coordinates of the point.
@@ -261,11 +275,25 @@ module Gifenc
       # @raise [Exception::GeometryError] If the line couldn't be determined
       #   from the supplied arguments.
       def project(p1: nil, p2: nil, direction: nil, angle: nil)
-        raise Exception::GeometryError, "Couldn't determine line to project onto,\
+        raise Exception::GeometryError, "Couldn't determine line,\
           at least one point must be supplied." if !p1 && !p2
         point = Point.parse(p1 || p2)
         direction = Geometry.direction(p1: p1, p2: p2, angle: angle) unless direction
         (self - point) - ((self - point) | direction)
+      end
+
+      # Reflect the point with respect to a line. The line might be supplied by
+      # providing either of the following 3 options:
+      # * Two different points from the line.
+      # * A point and a direction vector (not necessarily normalized).
+      # * A point and an angle.
+      # At least one point is therefore always required.
+      # @param (see #project)
+      # @return [Point] The reflected point with respect to the line.
+      # @raise (see #project)
+      def reflect(t = 1, p1: nil, p2: nil, direction: nil, angle: nil)
+        proj = self.project(p1: p1, p2: p2, direction: direction, angle: angle)
+        self ^ proj
       end
 
       # Return the angle (argument) of the point. It is expressed in radian,
