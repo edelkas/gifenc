@@ -112,7 +112,7 @@ module Gifenc
       # @return [Point,Float] The scaled point or the scalar product.
       def *(arg)
         if Numeric === arg
-          Point.new(@x * s, @y * s)
+          Point.new(@x * arg, @y * arg)
         else
           p = Point.parse(arg)
           @x * p.x + @y * p.y
@@ -279,7 +279,7 @@ module Gifenc
           at least one point must be supplied." if !p1 && !p2
         point = Point.parse(p1 || p2)
         direction = Geometry.direction(p1: p1, p2: p2, angle: angle) unless direction
-        (self - point) - ((self - point) | direction)
+        point - ((point - self) | direction)
       end
 
       # Reflect the point with respect to a line. The line might be supplied by
@@ -288,12 +288,16 @@ module Gifenc
       # * A point and a direction vector (not necessarily normalized).
       # * A point and an angle.
       # At least one point is therefore always required.
+      # @param t [Float] Proportion of reflection to perform. For example:
+      #   * `t = 1` will perform the full reflection.
+      #   * `t = 0` will land on the line.
+      #   * `t = -1` will not move the point.
       # @param (see #project)
       # @return [Point] The reflected point with respect to the line.
       # @raise (see #project)
       def reflect(t = 1, p1: nil, p2: nil, direction: nil, angle: nil)
         proj = self.project(p1: p1, p2: p2, direction: direction, angle: angle)
-        self ^ proj
+        self + (proj - self) * (t + 1)
       end
 
       # Return the angle (argument) of the point. It is expressed in radian,
@@ -513,7 +517,7 @@ module Gifenc
     # @raise [Exception::GeometryError] If not enough information is supplied
     #   (either the endpoints or the angle is required).
     def self.direction(p1: nil, p2: nil, angle: nil)
-      return Point.new([1, angle], :polar) if angle
+      return Point.parse([1, angle], :polar) if angle
       raise Exception::GeometryError, "Couldn't parse direction, endpoints or|
         angle must be supplied." if !p1 || !p2
       (Point.parse(p1) - Point.parse(p2)).normalize
@@ -531,10 +535,10 @@ module Gifenc
     #   and `[W, H]` are its width and height, respectively.
     def self.bbox(points, pad = 0)
       points = points.map{ |p| Point.parse(p) }
-      x0 = points.min_by(&:x).x - pad
-      y0 = points.min_by(&:y).y - pad
-      x1 = points.max_by(&:x).x + pad
-      y1 = points.max_by(&:y).y + pad
+      x0 = points.min_by(&:x).x.round - pad
+      y0 = points.min_by(&:y).y.round - pad
+      x1 = points.max_by(&:x).x.round + pad
+      y1 = points.max_by(&:y).y.round + pad
       [x0, y0, x1 - x0 + 1, y1 - y0 + 1]
     end
 
@@ -547,9 +551,8 @@ module Gifenc
     #   the supplied points.
     # @return [Array<Array<Integer>>] The list of translated points.
     def self.translate(points, vector)
-      points.map!{ |p| Point.parse(p) }
       vector = Point.parse(vector)
-      points.map{ |p| p + vector }
+      points.map{ |p| Point.parse(p) + vector }
     end
 
     # Computes the coordinates of a list of points relative to a provided bbox.
@@ -567,7 +570,6 @@ module Gifenc
     #   rectangle, and `[W, H]` are its width and height, respectively.
     # @return [Array<Array<Integer>>] The list of transformed points.
     def self.transform(points, bbox)
-      points.map!{ |p| Point.parse(p) }
       translate(points, [-bbox[0], -bbox[1]])
     end
 

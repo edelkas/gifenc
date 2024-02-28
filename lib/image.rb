@@ -487,6 +487,10 @@ module Gifenc
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
     def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1)
       # Check coordinates
+      x = x.round
+      y = y.round
+      w = w.round
+      h = h.round
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
       bound_check([x0, y0])
       bound_check([x1, y1])
