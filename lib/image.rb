@@ -408,6 +408,13 @@ module Gifenc
       self
     end
 
+    def fill(x, y, color)
+      bound_check([x, y], false)
+      return self if self[x, y] == color
+      fill_span(x, y, self[x, y], color)
+      self
+    end
+
     # Draw a straight line connecting 2 points. It requires the startpoint `p1`
     # and _either_ of the following:
     # * The endpoint (`p2`).
@@ -853,7 +860,35 @@ module Gifenc
 
     private
 
+    # Given a pixel:
+    # * Find the row span which shares that pixel's color.
+    # * Fill it with a new (different) color.
+    # * Repeat recursively for the previous and next row.
+    # Used for flood fill algorithm.
+    def fill_span(x, y, old_color, new_color)
+      # Nothing to fill from this seed
+      return if self[x, y] != old_color
+      self[x, y] = new_color
 
+      # Find negative span and fill it
+      x_min = x - 1
+      while x_min >= 0 && self[x_min, y] == old_color
+        self[x_min, y] = new_color
+        x_min -= 1
+      end
+
+      # Find positive span and fill it
+      x_max = x + 1
+      while x_max < @width && self[x_max, y] == old_color
+        self[x_max, y] = new_color
+        x_max += 1
+      end
+
+      # Recursively test previous and next rows
+      span = (x_min + 1 .. x_max - 1)
+      span.each{ |x| fill_span(x, y - 1, old_color, new_color) } if y > 0
+      span.each{ |x| fill_span(x, y + 1, old_color, new_color) } if y < @height - 1
+    end
 
   end
 end
