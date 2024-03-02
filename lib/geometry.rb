@@ -573,6 +573,43 @@ module Gifenc
       translate(points, [-bbox[0], -bbox[1]])
     end
 
+    # Compute the convex hull of a set of points. The convex hull is the smallest
+    # convex set containing the supplied points. This method will return the
+    # points located in the boundary of said hull in CCW order. The interior of
+    # the polygon they delimit is thus the convex hull.
+    #
+    # The *reduced* version will only include the extreme points of the boundary,
+    # i.e. the vertices, as opposed to all of them. The algorithm employed in
+    # both cases is the most basic one, known as the *Jarvis march*.
+    # @param points [Array<Point>] The list of points.
+    # @param reduced [Boolean] Whether to only return the vertices of the hull.
+    # @return [Array<Point>] The points composing the boundary of the convex hull.
+    def self.convex_hull(points, reduced = false)
+      points = points.uniq.map{ |p| Point.parse(p) }
+      return points if points.size < 3
+      hull_1 = points.min_by{ |p| [p.x, p.y] }
+      hull_2 = nil
+      hull_old = nil
+      hull = []
+      until hull_1 == hull.first
+        hull << hull_1
+        hull_2 = (points[0 ... 3] - [hull_1, hull_old]).first
+        points.each{ |p|
+          next if p == hull_1 || p == hull_2 || p == hull_old
+          index = cw(hull_1, p, hull_2)
+          next if index > PRECISION
+          if index.abs < PRECISION
+            d_new = hull_1.distance(p)
+            d_old = hull_1.distance(hull_2)
+          end
+          hull_2 = p if index < -PRECISION || (reduced ? d_new > d_old : d_new < d_old)
+        }
+        hull_old = hull_1
+        hull_1 = hull_2
+      end
+      hull
+    end
+
     # Checks if a list of points is entirely contained in the specified bounding
     # box.
     # @param (see #transform)
@@ -595,6 +632,16 @@ module Gifenc
         raise Exception::CanvasError, "Out of bounds pixels found: #{points_str}"
       end
       true
+    end
+
+    private
+
+    # Index that indicates the clockwise order of 3 points:
+    # < 0 --> CCW
+    # = 0 --> Aligned
+    # > 0 --> CW
+    def self.cw(p, q, r)
+      (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x)
     end
 
   end # Module Geometry

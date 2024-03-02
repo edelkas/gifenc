@@ -851,5 +851,9 @@ module Gifenc
       Geometry.bound_check([point], self, silent)
     end
 
+    private
+
+
+
   end
 end

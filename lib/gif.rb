@@ -222,6 +222,16 @@ module Gifenc
       self
     end
 
+    # Shortcut to modify the delay of the GIF's last frame, intended to
+    # showcase the final result before looping it.
+    # @param delay [Integer] The time, in 1/100ths of a second, to show the last
+    #   frame.
+    # @return [Gif] The GIF object.
+    def exhibit(delay = DEFAULT_EXHIBIT_TIME)
+      @images.last.delay = delay
+      self
+    end
+
     # Encode and write the GIF to a string.
     # @return [String] The string containing the encoded GIF file.
     def write

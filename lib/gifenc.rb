@@ -49,6 +49,9 @@ module Gifenc
   # Default pixel aspect ratio (`0` = square). Note that this setting is ignored
   # by most decoders.
   DEFAULT_ASPECT_RATIO = 0
+
+  # Default time to exhibit GIF's last frame when selected (in 1/100ths of sec)
+  DEFAULT_EXHIBIT_TIME = 100
 end
 
 require_relative 'errors.rb'

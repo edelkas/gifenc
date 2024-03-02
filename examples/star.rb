@@ -1,4 +1,4 @@
-require './lib/gifenc.rb'
+require 'gifenc'
 
 # Build a 5-point star by reflection a vertex about each diagonal
 # Obviously, it's not the optimal way to draw the star, it just serves to
