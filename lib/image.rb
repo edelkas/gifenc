@@ -168,7 +168,7 @@ module Gifenc
         @width, @height, @x, @y,
         color: @color, gce: gce, delay: @delay, trans_color: @trans_color,
         disposal: @disposal, interlace: @interlace, lct: lct
-      ).replace(@pixels)
+      ).replace(@pixels.dup)
       image
     end
 
