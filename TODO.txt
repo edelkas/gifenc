@@ -1,12 +1,13 @@
 Roadmap:
   0.2.0
-    Geometry (dot product, projections, reflections, convex hull), Drawing (convex
-    hull, polygons, function graphs, flood fill)
+    Geometry (barycenter, linear/convex combinations), Drawing (polygons,
+    grids, dashed/dotted lines, function graphs...)
   0.2.1
+    Compressed mode (compress each frame on the fly to save memory)
+  0.2.2
     Font parsing, Text rendering
   0.3.0
     Decoding (everything I can currently encode)
-    Compressed mode (compress each frame on the fly to save memory)
   0.4.0
     Full GIF specs (Plain Text & Comment extensions, interlacing)
   0.4.1
@@ -39,7 +40,6 @@ Roadmap:
 - Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
 - Geometry: Convex hull, barycenter, convex combinations...
-- Drawing: Bucket tool
 - Drawing: Grid, geometric shapes (e.g. polygons), patterns (like in Excel)...
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT, or at least, have

@@ -42,5 +42,15 @@ module Gifenc
     rescue
       ''.b
     end
+
+    # Encode data using LZW compliant with GIF specification.
+    # @param data [String] Binary string containing the arbitrary data to encode.
+    # @param min_bits [Integer] Minimum bits for each LZW code. Should be enough
+    # to encode all the symbols present in the data, and at most 12.
+    # @return [String] Binary string containing the encoded data.
+    def self.lzw_encode(data, min_bits = 8)
+      lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits, verbosity: :minimal)
+      min_bits.chr + Util.blockify(lzw.encode(data))
+    end
   end
 end

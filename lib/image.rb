@@ -109,12 +109,13 @@ module Gifenc
         @width  = bbox[2]
         @height = bbox[3]
       end
-      @width     = width  if width
-      @height    = height if height
-      @x         = x      if x
-      @y         = y      if y
-      @lct       = lct
-      @interlace = interlace
+      @width      = width  if width
+      @height     = height if height
+      @x          = x      if x
+      @y          = y      if y
+      @lct        = lct
+      @interlace  = interlace
+      @compressed = false
 
       # Checks
       raise Exception::CanvasError, "The width of the image must be supplied" if !@width
@@ -153,10 +154,7 @@ module Gifenc
       @lct.encode(stream) if @lct
 
       # LZW-compressed image data
-      min_bits = 8 #@lct ? @lct.bit_size : 8
-      stream << min_bits.chr
-      lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, min_bits: min_bits, verbosity: :minimal)
-      stream << Util.blockify(lzw.encode(@pixels.pack('C*')))
+      stream << (@compressed ? @pixels : Util.lzw_encode(@pixels.pack('C*')))
     end
 
     # Create a duplicate copy of this image.
@@ -269,6 +267,16 @@ module Gifenc
       self
     end
 
+    # Clear the pixel data of the image. This simply substitutes the contents
+    # of the array, hoping that the underlying data will go out of scope and
+    # be collected by the garbage collector. This is intended for freeing
+    # space and to simulate "destroying" the image.
+    # @return (see #initialize)
+    def clear
+      @pixels = nil
+      self
+    end
+
     # Copy a rectangular region from another image to this one. The offsets and
     # dimensions of the region can be specified.
     # @note The two images are assumed to have the same color table, since what
@@ -344,6 +352,12 @@ module Gifenc
       @x += x
       @y += y
       self
+    end
+
+    def compress
+      raise Exception::CanvasError, "Image is already compressed." if @compressed
+      @pixels = Util.lzw_encode(@pixels.pack('C*'))
+      @compressed = true
     end
 
     # Returns the bounding box of the image. This is a tuple of the form

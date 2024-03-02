@@ -93,6 +93,16 @@ module Gifenc
     # @return [Array<Extension>] Extension list.
     attr_accessor :extensions
 
+    # Automatically destroy each image right after processing it during encoding.
+    # This is intended to save as much memory as possible whenever that's sensitive.
+    # Normally, since the pixel data for each image gets encoded and appended to
+    # the final output, the data is briefly duplicated in memory. This avoids it.
+    # @note This will make the images unusable after the first encoding! So if
+    #   you plan on reusing them multiple times, do not enable this setting, or
+    #   only do so before the very last encoding.
+    # @return [Boolean] Auto-destroy mode.
+    attr_accessor :destroy
+
     # Creates a new GIF object.
     # @param width       [Integer]    Width of the logical screen (canvas) in pixels (see {#width} and {#resize}).
     # @param height      [Integer]    Height of the logical screen (canvas) in pixels (see {#height} and {#resize}).
@@ -104,6 +114,7 @@ module Gifenc
     # @param loops       [Integer]    Amount of times to loop the GIF (see {#loops}).
     # @param bg          [Integer]    Background color (see {#bg}).
     # @param ar          [Integer]    Pixel aspect ratio (see {#ar}).
+    # @param destroy     [Boolean]    Auto-destroy each image right after encoding (see {#destroy}).
     def initialize(
         width,
         height,
@@ -115,7 +126,8 @@ module Gifenc
         disposal:    nil,
         loops:       DEFAULT_LOOPS,
         bg:          DEFAULT_BACKGROUND,
-        ar:          DEFAULT_ASPECT_RATIO
+        ar:          DEFAULT_ASPECT_RATIO,
+        destroy:     false
       )
       # GIF attributes
       @width  = width
@@ -134,6 +146,9 @@ module Gifenc
       # GIF content data
       @images     = []
       @extensions = []
+
+      # Other
+      @destroy = destroy
 
       # If we want the GIF to loop, then add the Netscape Extension
       self.loops = loops
@@ -159,7 +174,13 @@ module Gifenc
       @extensions.each{ |e| e.encode(stream) }
 
       # Encode frames containing image data (and local extensions)
-      @images.each{ |f| f.encode(stream) }
+      @images.size.times.each{ |i|
+        @images[i].encode(stream)
+        if @destroy
+          @images[i].clear
+          @images[i] = nil
+        end
+      }
 
       # Trailer
       stream << TRAILER
