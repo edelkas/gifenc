@@ -11,6 +11,9 @@ module Gifenc
   # be chained properly.
   class Image
 
+    # # 1-byte field indicating the beginning of an image block.
+    IMAGE_SEPARATOR = ','.freeze
+
     # Width of the image in pixels. Use the {#resize} method to change it.
     # @return [Integer] Image width.
     # @see #resize
@@ -142,17 +145,17 @@ module Gifenc
       @gce.encode(stream) if @gce
 
       # Image descriptor
-      stream << ','
-      stream << [@x, @y, @width, @height].pack('S<4')
+      stream << IMAGE_SEPARATOR
+      stream << [@x, @y, @width, @height].pack('S<4'.freeze)
       flags = (@interlace ? 1 : 0) << 6
       flags |= @lct.local_flags if @lct
-      stream << [flags].pack('C')
+      stream << [flags].pack('C'.freeze)
 
       # Local Color Table
       @lct.encode(stream) if @lct
 
       # LZW-compressed image data
-      stream << (@compressed ? @pixels : Util.lzw_encode(@pixels.pack('C*')))
+      stream << (@compressed ? @pixels : Util.lzw_encode(@pixels.pack('C*'.freeze)))
     end
 
     # Create a duplicate copy of this image.

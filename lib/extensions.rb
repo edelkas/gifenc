@@ -7,7 +7,7 @@ module Gifenc
   class Extension
 
     # 1-byte field indicating the beginning of an extension block.
-    EXTENSION_INTRODUCER = '!'
+    EXTENSION_INTRODUCER = '!'.freeze
 
     # Create a new generic extension block.
     # @param label [Integer] Label of the extension, uniquely identifies the type of extension.
@@ -20,8 +20,8 @@ module Gifenc
     # @param stream [IO] Stream to write the data to.
     def encode(stream)
       stream << EXTENSION_INTRODUCER
-      stream << @label.chr # Extension label
-      stream << body       # Extension content
+      stream << @label # Extension label
+      stream << body   # Extension content
     end
 
     # This extension precedes a *single* image and controls several of its rendering
@@ -67,7 +67,7 @@ module Gifenc
     class GraphicControl < Extension
 
       # Label identifying a Graphic Control Extension block.
-      LABEL = 0xF9
+      LABEL = "\xF9".freeze
 
       # Specifies the time, in 1/100ths of a second, to leave this image onscreen
       # before moving on to rendering the next one in the GIF. Must be between
@@ -150,15 +150,15 @@ module Gifenc
           ((@disposal || DEFAULT_DISPOSAL) & 0b111) << 2 |
           ((@user_input    ? 1 : 0)        & 0b1  ) << 1 |
           ((!!@trans_color ? 1 : 0)        & 0b1  )
-        ].pack('C')
+        ].pack('C'.freeze)
         trans_color = !@trans_color ? DEFAULT_TRANS_COLOR : @trans_color
 
         # Main params
-        str = "\x04"                   # Block size (always 4 bytes)
-        str += flags                   # Packed fields
-        str += [@delay].pack('S<')     # Delay time
-        str += [trans_color].pack('C') # Transparent index
-        str += BLOCK_TERMINATOR
+        str = "\x04"                          # Block size (always 4 bytes)
+        str << flags                          # Packed fields
+        str << [@delay].pack('S<'.freeze)     # Delay time
+        str << [trans_color].pack('C'.freeze) # Transparent index
+        str << BLOCK_TERMINATOR
 
         str
       end
@@ -193,7 +193,7 @@ module Gifenc
     class Application < Extension
 
       # Label identifying an Application Extension block.
-      LABEL = 0xFF
+      LABEL = "\xFF".freeze
 
       # Application identifier. Must be an 8 character ASCII string.
       # @return [String] The identifier string.
