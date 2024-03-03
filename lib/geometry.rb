@@ -634,6 +634,52 @@ module Gifenc
       true
     end
 
+    # Compute a linear combination of points given the weights. The two supplied
+    # arrays should have the same length.
+    # @param points [Array<Point>] The points to combine.
+    # @param weights [Array<Float>] The weights to utilize for each point.
+    # @return [Point] The resulting linear combination.
+    # @raise [Exception::GeometryError] If the arrays' sizes differ.
+    def self.comb_linear(points, weights)
+      if points.size != weights.size
+        raise Exception::GeometryError, "Point and weight counts differ."
+      end
+      return ORIGIN if points.size == 0
+
+      points.map!{ |p| Point.parse(p) }
+      res = points[0] * weights[0]
+      points[1..-1].each_with_index{ |p, i|
+        res += p * weights[i + 1]
+      }
+      res
+    end
+
+    # Compute a convex combination of points given the weights. This is simply
+    # a linear combination, but the weights are normalized so they sum to 1.
+    # If they're positive, the resulting point will always be contained within
+    # the convex hull of the supplied points, hence the name. The two provided
+    # arrays should have the same length.
+    # @param (see #comb_linear)
+    # @return [Point] The resulting convex combination.
+    # @raise [Exception::GeometryError] If the arrays's sizes differ, or if the
+    #   weights sum to 0.
+    def self.comb_convex(points, weights)
+      return ORIGIN if points.size == 0
+      weight = weights.sum
+      raise Exception::GeometryError, "Cannot find convex combination, weights sum to 0." if weight.abs < PRECISION
+      comb_linear(points, weights.map{ |w| w.to_f / weight })
+    end
+
+    # Find the center of mass (barycenter) of a list of points. This will always
+    # be contained within the convex hull of the supplied points.
+    # @param points [Array<Point>] The list of points.
+    # @return [Point] 
+    def self.center(points)
+      raise Exception::GeometryError, "Cannot find center of empty list of points." if points.size == 0
+      points.map!{ |p| Point.parse(p) }
+      points.sum(ORIGIN) / points.size
+    end
+
     private
 
     # Index that indicates the clockwise order of 3 points:

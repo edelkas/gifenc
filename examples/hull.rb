@@ -1,16 +1,19 @@
 require 'gifenc'
 
 # GIF dimensions and amount of random points to take
-DIM  = 128
-N    = 64
+DIM    = 128
+MARGIN = 16
+N      = 32
 
 # Build a basic color table and a looping GIF with a first background frame
-palette = Gifenc::ColorTable.new([0xFFFFFF, 0, 0x880000, 0xFFDDDD])
+palette = Gifenc::ColorTable.new([0xFFFFFF, 0, 0x880000, 0xFFDDDD, 0x000088])
 gif = Gifenc::Gif.new(DIM, DIM, gct: palette, loops: -1)
 bg = Gifenc::Image.new(DIM, DIM, color: 0, delay: 2)
 
 # Generate N random points and draw them on the canvas as little circles
-points = N.times.map{ [2 + rand(DIM - 4), 2 + rand(DIM - 4)] }
+points = N.times.map{
+  [MARGIN + rand(DIM - 2 * MARGIN), MARGIN + rand(DIM - 2 * MARGIN)]
+}
 points.each{ |p| bg.circle(p, 0.5, nil, 1) }
 gif.images << bg
 last = bg.dup # Duplicate background for later
@@ -61,6 +64,11 @@ hull.size.times.each{ |i|
   end
 }
 gif.images << last
+
+# We finish by also drawing the center of mass of the random points, which is
+# of course contained within the convex hull.
+center = Gifenc::Geometry.center(points)
+last.circle(center, 2, nil, 4)
 
 # Keep last frame onscreen for longer
 gif.exhibit(200)

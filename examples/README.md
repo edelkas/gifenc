@@ -10,4 +10,4 @@ The following animated GIFs have been generated with the code samples present in
 |**ellipses.rb** <br>Some more drawing primitives. Morphing ellipses with border.|![Ellipses GIF](../res/ellipses.gif)|
 |**spirals.rb** <br>Gifenc allows to trace parametric curves. In this example, we trace 4 similar archimedean spirals, morphing them in different ways (rotating, scaling, tracing, and all 3 of them). |![Spirals GIF](../res/spirals.gif)|
 |**star.rb** <br>Tracing of a pointed star. This example showcases another geometrica tool: reflections, since we trace each side by progressively reflecting a vertex about one of the star's diagonals. |![Star GIF](../res/star.gif)|
-|**hull.rb** <br>Tracing the convex hull of a random sample of points, and using the flood fill / bucket tool to color the interior once the trace is done. |![Convex hull GIF](../res/hull.gif)|
+|**hull.rb** <br>Tracing the convex hull of a random sample of points, and using the flood fill / bucket tool to color the interior once the trace is done. We also plot the center of mass of the points at the end.|![Convex hull GIF](../res/hull.gif)|
