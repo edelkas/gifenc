@@ -514,8 +514,9 @@ module Gifenc
       w = w.round
       h = h.round
       x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
-      bound_check([x0, y0])
-      bound_check([x1, y1])
+      if !Geometry.bound_check([[x0, y0], [x1, y1]], self, true)
+        raise Exception::CanvasError, "Rectangle out of bounds."
+      end
 
       # Fill rectangle, if provided
       if fill
@@ -544,6 +545,45 @@ module Gifenc
           }
         end
       end
+
+      self
+    end
+
+    # Draw a rectangular grid of straight lines.
+    # @param x [Integer] The X offset in the image to begin the grid.
+    # @param y [Integer] The Y offset in the image to begin the grid.
+    # @param w [Integer] The width of the grid in pixels.
+    # @param h [Integer] The height of the grid in pixels.
+    # @param step_x [Integer] The separation of the vertical lines in pixels.
+    # @param step_y [Integer] The separation of the horizontal lines in pixels.
+    # @param off_x [Integer] The initial shift of the vertical lines with respect
+    #   to the grid start, `x`.
+    # @param off_y [Integer] The initial shift of the horizontal lines with respect
+    #   to the grid start, `y`.
+    # @param color [Integer] The index of the color in the color table to use for
+    #   the grid lines.
+    # @param weight [Integer] The size of the brush to use for the grid lines.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If the grid would go out of bounds.
+    def grid(x, y, w, h, step_x, step_y, off_x, off_y, color: 0, weight: 1)
+      # Round coordinates
+      x = x.round
+      y = y.round
+      w = w.round
+      h = h.round
+      if !Geometry.bound_check([[x, y], [x + w - 1, y + h - 1]], self, true)
+        raise Exception::CanvasError, "Grid out of bounds."
+      end
+
+      # Draw vertical lines
+      (x + off_x ... x + w).step(step_x).each{ |j|
+        line(p1: [j, y], p2: [j, y + h - 1], color: color, weight: weight, anchor: -1)
+      }
+
+      # Draw horizontal lines
+      (y + off_y... y + h).step(step_y).each{ |i|
+        line(p1: [x, i], p2: [x + w - 1, i], color: color, weight: weight, anchor: 1)
+      }
 
       self
     end

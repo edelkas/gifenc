@@ -1,7 +1,6 @@
 Roadmap:
   0.2.0
-    Geometry (barycenter, linear/convex combinations), Drawing (polygons,
-    grids, dashed/dotted lines, function graphs...)
+    Drawing (polygons, dashed/dotted lines, function graphs...)
   0.2.1
     Compressed mode (compress each frame on the fly to save memory)
   0.2.2
@@ -39,8 +38,7 @@ Roadmap:
   to any color), grayscale, quantization, color shifting, etc.
 - Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
-- Geometry: Convex hull, barycenter, convex combinations...
-- Drawing: Grid, geometric shapes (e.g. polygons), patterns (like in Excel)...
+- Drawing: Patterns (like in Excel)...
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT, or at least, have
   a warning when that is done, and a hard switch that is needed to enable not having
