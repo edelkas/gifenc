@@ -38,7 +38,7 @@ Roadmap:
   to any color), grayscale, quantization, color shifting, etc.
 - Add default color tables (e.g. web-safe, grayscale, etc)
 - Implement interlacing
-- Drawing: Patterns (like in Excel)...
+- Drawing: Patterns (like in Excel), line styles for curves
 - In the bound checks for line/rect we're not taking the width into consideration
 - Enforce that we either have a GCT or every frame has an LCT, or at least, have
   a warning when that is done, and a hard switch that is needed to enable not having

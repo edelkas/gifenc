@@ -461,7 +461,8 @@ module Gifenc
     # @raise [Exception::CanvasError] If the line would go out of bounds.
     # @todo Add support for anchors and anti-aliasing, better brushes, etc.
     def line(p1: nil, p2: nil, vector: nil, angle: nil, direction: nil,
-      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil, avoid: [])
+      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil, avoid: [],
+      style: :solid, density: :normal, pattern: nil, pattern_offset: 0)
       # Determine start and end points
       raise Exception::CanvasError, "The line start must be specified." if !p1
       p1 = Geometry::Point.parse(p1)
@@ -473,6 +474,7 @@ module Gifenc
           angle: angle, length: length
         )
       end
+      pattern = parse_line_pattern(style, density, weight) unless pattern
 
       if (p2 - p1).norm < Geometry::PRECISION
         a = Geometry::ORIGIN
@@ -484,8 +486,10 @@ module Gifenc
       delta = (p2 - p1) / [(steps - 1), 1].max
       point = p1
       brush = Brush.square(weight, color, [a.x, a.y])
-      steps.times.each{ |s|
-        brush.draw(point.x.round, point.y.round, self, bbox: bbox, avoid: avoid)
+      steps.times.each_with_index{ |s|
+        if (s - pattern_offset) % pattern.sum < pattern[0]
+          brush.draw(point.x.round, point.y.round, self, bbox: bbox, avoid: avoid)
+        end
         point += delta
       }
 
@@ -563,9 +567,13 @@ module Gifenc
     # @param color [Integer] The index of the color in the color table to use for
     #   the grid lines.
     # @param weight [Integer] The size of the brush to use for the grid lines.
+    # @param pattern [Array<Integer>] Specifies the pattern of the grid lines
+    #   (see `pattern` param in {#line}).
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the grid would go out of bounds.
-    def grid(x, y, w, h, step_x, step_y, off_x, off_y, color: 0, weight: 1)
+    def grid(x, y, w, h, step_x, step_y, off_x, off_y, color: 0, weight: 1,
+      dashed: false, dotted: false, style: :solid, density: :normal,
+      pattern: nil, pattern_offsets: [0, 0])
       # Round coordinates
       x = x.round
       y = y.round
@@ -574,15 +582,22 @@ module Gifenc
       if !Geometry.bound_check([[x, y], [x + w - 1, y + h - 1]], self, true)
         raise Exception::CanvasError, "Grid out of bounds."
       end
+      pattern = parse_line_pattern(style, density, weight) unless pattern
 
       # Draw vertical lines
       (x + off_x ... x + w).step(step_x).each{ |j|
-        line(p1: [j, y], p2: [j, y + h - 1], color: color, weight: weight, anchor: -1)
+        line(
+          p1: [j, y], p2: [j, y + h - 1], color: color, weight: weight,
+          anchor: -1, pattern: pattern, pattern_offset: pattern_offsets[0]
+        )
       }
 
       # Draw horizontal lines
       (y + off_y... y + h).step(step_y).each{ |i|
-        line(p1: [x, i], p2: [x + w - 1, i], color: color, weight: weight, anchor: 1)
+        line(
+          p1: [x, i], p2: [x + w - 1, i], color: color, weight: weight,
+          anchor: 1, pattern: pattern, pattern_offset: pattern_offsets[1]
+        )
       }
 
       self
@@ -943,6 +958,25 @@ module Gifenc
       span = (x_min + 1 .. x_max - 1)
       span.each{ |x| fill_span(x, y - 1, old_color, new_color) } if y > 0
       span.each{ |x| fill_span(x, y + 1, old_color, new_color) } if y < @height - 1
+    end
+
+    # Parse the line ON/OFF pattern given a few named values.
+    # Style can be solid, dotted or dashed. Density can be normal, dense or loose.
+    def parse_line_pattern(style = :solid, density = :normal, weight = 1)
+      # Normalize params
+      style = :solid if ![:solid, :dotted, :dashed].include?(style)
+      density = :normal if ![:loose, :normal, :dense].include?(density)
+
+      # Length of ON segment depends on style
+      on = style == :dashed ? 4 * weight + 1 : 1
+
+      # Length of OFF segment depends on density
+      off = weight
+      off += on - 1 if [:normal, :loose].include?(density)
+      off += on - 1 if density == :loose
+      off = 0 if style == :solid
+
+      [on, off]
     end
 
   end
