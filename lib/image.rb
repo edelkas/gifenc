@@ -1,5 +1,3 @@
-require 'lzwrb'
-
 module Gifenc
   # Represents a single image. A GIF may contain multiple images, and they need
   # not be animation frames (they could simply be tiles of a static image).
