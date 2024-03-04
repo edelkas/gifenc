@@ -46,7 +46,7 @@ module Gifenc
       # * An array, in which case it creates a new point whose coordinates are
       #   the values of the array.
       # @param point [Point,Array<Integer>] The parameter to parse the point from.
-      # @param system [Symbol] The coordinate system to use for parsing the
+      # @param sys [Symbol] The coordinate system to use for parsing the
       #   coordinates. It may be `:cartesian` or `:polar`.
       # @return [Point] The parsed point object.
       # @raise [Exception::GeometryError] When a point couldn't be parsed from the supplied

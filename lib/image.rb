@@ -423,6 +423,13 @@ module Gifenc
       self
     end
 
+    # Fill a contiguous region with a new color. This implements the classic
+    # flood fill algorithm used in bucket tools.
+    # @param x [Integer] X coordinate of the starting pixel.
+    # @param y [Integer] Y coordinate of the starting pixel.
+    # @param color [Integer] Index of the color to fill the region with.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If the specified point is out of bounds.
     def fill(x, y, color)
       bound_check([x, y], false)
       return self if self[x, y] == color
@@ -457,6 +464,20 @@ module Gifenc
     #   `nil`, this defaults to the whole image.
     # @param avoid [Array<Integer>] List of colors over which the line should
     #   NOT be drawn.
+    # @param style [Symbol] Named style / pattern of the line. Can be `:solid`
+    #   (default), `:dashed` and `:dotted`. Fine grained control can be obtained
+    #   with the `pattern` option.
+    # @param density [Symbol] Density of the line style/ pattern. Can be `:normal`
+    #   (default), `:dense` and `:loose`. Only relevant when the `style` option
+    #   is used (and only makes a difference for dashed and dotted patterns).
+    #   Fine grained control can be obtained with the `pattern` option.
+    # @param pattern [Array<Integer>] A pair of integers specifying what portion
+    #   of the line should be ON (i.e. drawn) and OFF (i.e. spacing). With this
+    #   option, any arbitrary pattern can be achieved. Common patterns, such as
+    #   dotted and dashed, can be achieved more simply using the `style` and
+    #   `density` options instead.
+    # @param pattern_offset [Integer] If the line style is not solid, this integer
+    #   will offset /shift the pattern a fixed number of pixels forward (or backwards).
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the line would go out of bounds.
     # @todo Add support for anchors and anti-aliasing, better brushes, etc.
@@ -567,13 +588,18 @@ module Gifenc
     # @param color [Integer] The index of the color in the color table to use for
     #   the grid lines.
     # @param weight [Integer] The size of the brush to use for the grid lines.
-    # @param pattern [Array<Integer>] Specifies the pattern of the grid lines
-    #   (see `pattern` param in {#line}).
+    # @param style [Symbol] Line style (`:solid`, `:dashed`, `:dotted`). See
+    #   `style` param in {#line}).
+    # @param density [Symbol] Line pattern density (`:normal`, `:dense`, `:loose`).
+    #   See `density` param in {#line}.
+    # @param pattern [Array<Integer>] Specifies the pattern of the line style.
+    #   See `pattern` param in {#line}.
+    # @param pattern_offsets [Array<Integer>] Specifies the offsets of the patterns
+    #   on each direction. See `pattern_offset` param in {#line}.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the grid would go out of bounds.
     def grid(x, y, w, h, step_x, step_y, off_x, off_y, color: 0, weight: 1,
-      dashed: false, dotted: false, style: :solid, density: :normal,
-      pattern: nil, pattern_offsets: [0, 0])
+      style: :solid, density: :normal, pattern: nil, pattern_offsets: nil)
       # Round coordinates
       x = x.round
       y = y.round
@@ -583,6 +609,7 @@ module Gifenc
         raise Exception::CanvasError, "Grid out of bounds."
       end
       pattern = parse_line_pattern(style, density, weight) unless pattern
+      pattern_offsets = [0, 0] unless pattern_offsets
 
       # Draw vertical lines
       (x + off_x ... x + w).step(step_x).each{ |j|
@@ -972,8 +999,8 @@ module Gifenc
 
       # Length of OFF segment depends on density
       off = weight
-      off += on - 1 if [:normal, :loose].include?(density)
-      off += on - 1 if density == :loose
+      off += on + weight - 1 if [:normal, :loose].include?(density)
+      off += on + weight - 1 if density == :loose
       off = 0 if style == :solid
 
       [on, off]
