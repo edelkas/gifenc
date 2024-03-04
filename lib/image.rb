@@ -598,7 +598,7 @@ module Gifenc
     #   on each direction. See `pattern_offset` param in {#line}.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the grid would go out of bounds.
-    def grid(x, y, w, h, step_x, step_y, off_x, off_y, color: 0, weight: 1,
+    def grid(x, y, w, h, step_x, step_y, off_x = 0, off_y = 0, color: 0, weight: 1,
       style: :solid, density: :normal, pattern: nil, pattern_offsets: nil)
       # Round coordinates
       x = x.round
@@ -794,13 +794,11 @@ module Gifenc
         raise Exception::GeometryError, "Cannot infer the curve's drawing density,|
           please specify either the step or the dots argument."
       end
-      step = (to - from).abs / (dots + 1) if !step
+      step = (to - from).abs.to_f / (dots + 1) if !step
       points = (from .. to).step(step).map{ |t| func.call(t) }
       node_color = line_color unless node_color
       polygonal(points, line_color: line_color, line_weight: line_weight,
         node_color: node_color, node_weight: node_weight)
-
-      self
     end
 
     # Draw a general spiral given by its scale functions in either direction.
@@ -844,7 +842,6 @@ module Gifenc
         from, to, step: 2 * Math::PI / control_points,
         line_color: color, line_weight: weight
       )
-      self
     end
 
     # Draw an Archimedean spiral. This type of spiral is the simplest case,
@@ -863,6 +860,73 @@ module Gifenc
         scale_x: -> (t) {step * t / (2 * Math::PI) },
         scale_y: -> (t) {step * t / (2 * Math::PI) },
         color: color, weight: weight
+      )
+    end
+
+    def graph(func, x_from, x_to, y_from, y_to, x_scale: 1, y_scale: 1,
+      origin: [@width / 2, @height / 2], color: 0, weight: 1, grid: false, grid_color: 0,
+      grid_weight: 1, grid_sep_x: nil, grid_sep_y: nil, grid_steps_x: 6,
+      grid_steps_y: 6, grid_style: :dotted, grid_density: :normal, axes: true,
+      axes_color: 0, axes_weight: 1, axes_style: :solid, axes_density: :normal)
+      # TODO:
+      # * Draw grid as 4 grids starting at the origin, so that it's always
+      #   properly centered.
+      # * Be able to change orientation of plot
+      # * Draw origin
+      # * Axes: Tip (arrows?) and label
+      # * Drawing precision (dots / step, calculate based on function and range)
+      # * Deduce Y range from function and X range
+      # * Allow for graph line styles
+      # * Docs
+
+      # Normalize parameters
+      origin = Geometry::Point.parse(origin)
+
+      # Grid
+      if grid
+        grid_sep_x = (x_to - x_from).abs.to_f / grid_steps_x
+        grid_sep_y = (y_to - y_from).abs.to_f / grid_steps_y
+        grid(
+          origin.x + x_scale * x_from,
+          origin.y - y_scale * y_to,
+          (x_to - x_from).abs * x_scale,
+          (y_to - y_from).abs * y_scale,
+          x_scale * grid_sep_x, y_scale * grid_sep_y,
+          0, 0,
+          color: grid_color,
+          weight: grid_weight,
+          style: grid_style,
+          density: grid_density
+        )
+      end
+
+      # Axes
+      if axes
+        # X axis
+        line(
+          p1: [origin.x + x_scale * x_from, origin.y],
+          p2: [origin.x + x_scale * x_to, origin.y],
+          color: axes_color,
+          weight: axes_weight,
+          style: axes_style,
+          density: axes_density
+        )
+
+        # Y axis
+        line(
+          p1: [origin.x, origin.y - y_scale * y_from],
+          p2: [origin.x, origin.y - y_scale * y_to],
+          color: axes_color,
+          weight: axes_weight,
+          style: axes_style,
+          density: axes_density
+        )
+      end
+
+      # Graph
+      curve(
+        -> (t) { [origin.x + x_scale * t, origin.y - y_scale * func.call(t)] },
+        x_from, x_to, dots: 100, line_color: color, line_weight: weight
       )
     end
 
