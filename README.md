@@ -11,7 +11,7 @@ A pure Ruby library with no external dependencies that allows to encode, decode 
 * Have a decent suite of editing functionalities, so that the need for external tools is avoided as much as possible.
 * Have a succint and comfortable syntax to use.
 
-Currently, the specs are almost fully supported for encoding. Decoding is not yet available, and the editing methods are very limited. See the [Reference](https://www.rubydoc.info/gems/gifenc) for the full documentation, as well as [Examples](https://github.com/edelkas/gifenc/tree/master/examples) for a list of sample snippets and GIFs.
+Currently, the specs are almost fully supported for encoding. Decoding is not yet available, but will be soon. There's a solid `Geometry` module and decent drawing functionality. See the [Reference](https://www.rubydoc.info/gems/gifenc) for the full documentation, as well as [Examples](https://github.com/edelkas/gifenc/tree/master/examples) for a list of sample snippets and GIFs.
 
 ## A first example
 
@@ -51,7 +51,7 @@ end
 gif.save('test.gif')
 ```
 
-Let's see a step-by-step overview, refer to the following sections for an in-depth explanation of the actual details for each of the topics involved.
+Let's see a step-by-step overview, refer to the documentation for an in-depth explanation of the actual details for each of the topics involved.
 1. The first thing we do is create two **Color Tables**, one with red shades, and another with green shades. Since GIF is an indexed image format, it can only use colors from predefined palettes of at most 256 colors. `Gifenc` comes equipped with several default ones, but you can build your own, and operate with them.
 2. We create the GIF object. We select the red color table to be the **GCT** (_Global Color Table_), which is used for all frames that do not contain an explicit **LCT** (_Local Color Table_). We also set the GIF to loop indefinitely.
 3. We create the first frame, this will act as the background. We use the green color table as LCT for this frame. We set a few attributes, such as the default color of the canvas, the length of the frame, and the color used for transparency. We draw a sequence of centered green squares, they will help to see the transparency of the next frames.

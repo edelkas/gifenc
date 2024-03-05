@@ -10,7 +10,7 @@ A big update, with the main changes being divided in two categories: mathematica
   * Point operations, such as translations, dilations / scalings, linear and convex combinations, scalar product, center of mass, etc.
   * Point transformations, such as rotations, projections and reflections.
   * Norms (L1, euclidean, supremum), normalization, distances.
-  * Angles, parallelism, orthonality, normal vectors...
+  * Angles, parallelism, orthogonality, normal vectors...
 
 - Significantly expanded the drawing functionality, including:
   * Improved line drawing, and added line styles (dashed, dotted, etc).
@@ -18,10 +18,11 @@ A big update, with the main changes being divided in two categories: mathematica
   * Added grids, polygonal chains and spirals.
   * Arbitrary parametric curves and function graphs given a lambda function.
   * Implemented the flood fill / bucket tool.
+  * Added a general Brush class to enable more flexible drawing.
 
 Many sample GIFs, showcasing all this new functionality, were added in the [Examples](https://github.com/edelkas/gifenc/tree/master/examples) folder as well.
 
-- Other functionality added includes:
+- Additional new functionality includes:
   * Copy: Ability to copy a region from one image to another.
   * Compress: Ability to LZW-compress image data on the fly, instead of keeping
     everything raw in memory until final encode time. Particularly helpful for
