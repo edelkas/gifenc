@@ -1,6 +1,4 @@
 Roadmap:
-  0.2.0
-    Drawing (polygons, dashed/dotted lines, function graphs...)
   0.2.1
     Compressed mode (compress each frame on the fly to save memory)
   0.2.2

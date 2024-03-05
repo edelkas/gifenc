@@ -532,7 +532,8 @@ module Gifenc
     #   * For `-1` the border is entirely surrounding the boundary.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
-    def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1)
+    def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1,
+      style: :solid, density: :normal)
       # Check coordinates
       x = x.round
       y = y.round
@@ -556,16 +557,20 @@ module Gifenc
       if stroke
         if anchor != 0
           o = ((weight - 1) / 2.0 * anchor).round
-          rect(x + o, y + o, w - 2 * o, h - 2 * o, stroke, weight: weight, anchor: 0)
+          w -= 2 * o - (weight % 2 == 0 ? 1 : 0)
+          h -= 2 * o - (weight % 2 == 0 ? 1 : 0)
+          rect(x + o, y + o, w, h, stroke, weight: weight, anchor: 0)
         else
           points = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
           4.times.each{ |i|
             line(
-              p1:     points[i],
-              p2:     points[(i + 1) % 4],
-              color:  stroke,
-              weight: weight,
-              anchor: anchor
+              p1:      points[i],
+              p2:      points[(i + 1) % 4],
+              color:   stroke,
+              weight:  weight,
+              anchor:  anchor,
+              style:   style,
+              density: density
             )
           }
         end
@@ -599,17 +604,12 @@ module Gifenc
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the grid would go out of bounds.
     def grid(x, y, w, h, step_x, step_y, off_x = 0, off_y = 0, color: 0, weight: 1,
-      style: :solid, density: :normal, pattern: nil, pattern_offsets: nil)
-      # Round coordinates
-      x = x.round
-      y = y.round
-      w = w.round
-      h = h.round
+      style: :solid, density: :normal, pattern: nil, pattern_offsets: [0, 0])
+
       if !Geometry.bound_check([[x, y], [x + w - 1, y + h - 1]], self, true)
         raise Exception::CanvasError, "Grid out of bounds."
       end
       pattern = parse_line_pattern(style, density, weight) unless pattern
-      pattern_offsets = [0, 0] unless pattern_offsets
 
       # Draw vertical lines
       (x + off_x ... x + w).step(step_x).each{ |j|
@@ -755,9 +755,13 @@ module Gifenc
       )
       node_color = line_color unless node_color
       0.upto(points.size - 2).each{ |i|
+        next if !points[i] || !points[i + 1]
         line(p1: points[i], p2: points[i + 1], color: line_color, weight: line_weight) rescue nil
       }
-      points.each{ |p| circle(p, node_weight, nil, node_color) }
+      points.each{ |p|
+        next if !p
+        circle(p, node_weight, nil, node_color)
+      }
       self
     end
 
@@ -863,39 +867,134 @@ module Gifenc
       )
     end
 
-    def graph(func, x_from, x_to, y_from, y_to, x_scale: 1, y_scale: 1,
-      origin: [@width / 2, @height / 2], color: 0, weight: 1, grid: false, grid_color: 0,
-      grid_weight: 1, grid_sep_x: nil, grid_sep_y: nil, grid_steps_x: 6,
-      grid_steps_y: 6, grid_style: :dotted, grid_density: :normal, axes: true,
-      axes_color: 0, axes_weight: 1, axes_style: :solid, axes_density: :normal)
-      # TODO:
-      # * Draw grid as 4 grids starting at the origin, so that it's always
-      #   properly centered.
-      # * Be able to change orientation of plot
-      # * Draw origin
-      # * Axes: Tip (arrows?) and label
-      # * Drawing precision (dots / step, calculate based on function and range)
-      # * Deduce Y range from function and X range
-      # * Allow for graph line styles
-      # * Docs
-
+    # Plot the graph of a function. In the following, we will distinguish between
+    # "function" coordinates (i.e., the values the function actually takes),
+    # and "pixel" coordinates (i.e., the actual coordinates of the pixels that
+    # will be drawn).
+    # @param func [Lambda] The function to plot. Must take a single Float parameter,
+    #   which represents the function's variable, and return a single Float value,
+    #   the function's value at that point. Both in function coordinates.
+    # @param x_from [Float] The start of the X range to plot, in function coordinates.
+    # @param x_to [Float] The end of the X range to plot, in function coordinates.
+    # @param y_from [Float] The start of the Y range to plot, in function coordinates.
+    # @param y_to [Float] The end of the Y range to plot, in function coordinates.
+    # @param pos [Point] The position of the graph. These are the pixel coordinates
+    #   of the upper left corner of the graph. See also `:origin`.
+    # @param center [Point] The position of the origin. These are the pixel coordinates
+    #   of the origin of the graph, _even if_ the origin isn't actually in the
+    #   plotting range (it'll still be used internally to calculate all the
+    #   other pixel coords relative to this). Takes preference over `:pos`.
+    # @param color [Integer] The index of the color to use for the function's graph.
+    # @param weight [Integer] The width of the graph's line, in pixels.
+    # @param grid [Boolean] Whether to draw a grid or not.
+    # @param grid_color [Integer] Index of the color to be used for the grid lines.
+    # @param grid_weight [Integer] The width of the grid lines in pixels.
+    # @param grid_sep_x [Float] The separation between the vertical grid lines,
+    #   in function coordinates. Takes preference over `:grid_steps_x`.
+    # @param grid_sep_y [Float] The separation between the horizontal grid lines,
+    #   in function coordinates. Takes preference over `:grid_steps_y`.
+    # @param grid_steps_x [Float] How many grid intervals to use for the X range.
+    #   Only used if no explicit separation has been supplied with `:grid_sep_x`.
+    # @param grid_steps_y [Float] How many grid intervals to use for the Y range.
+    #   Only used if no explicit separation has been supplied with `:grid_sep_y`.
+    # @param grid_style [Symbol] Style of the grid lines (`:solid`, `:dashed`,
+    #   `:dotted`). See `style` option in {#line}.
+    # @param grid_density [Symbol] Density of the grid pattern (`:normal`, `:dense`,
+    #   `:loose`). See `density` option in {#line}.
+    # @param axes [Boolean] Whether to draw to axes or not.
+    # @param axes_color [Integer] Index of the color to use for the axes.
+    # @param axes_weight [Integer] Width of the axes line in pixels.
+    # @param axes_style [Symbol] Style of the axes lines (`:solid`, `:dashed`,
+    #   `:dotted`). See `style` option in {#line}.
+    # @param axes_density [Symbol] Density of the axes pattern (`:normal`, `:dense`,
+    #   `:loose`). See `density` option in {#line}.
+    # @param origin [Boolean] Whether to draw the origin or not.
+    # @param origin_color [Integer] The index of the color to use for the origin dot.
+    # @param origin_weight [Float] The radius of the circle to use for the origin,
+    #   in pixels.
+    # @param background [Boolean] Whether to draw a solid rectangle as a background
+    #   for the whole plot.
+    # @param background_color [Integer] Index of the color to use for the
+    #   background rectangle.
+    # @param background_padding [Integer] Amount of extra padding pixels between
+    #   the rectangle's boundary and the elements it surrounds.
+    # @param frame [Boolean] Whether to draw a frame around the plot. If specified,
+    #   it will be the border of the background's rectangle.
+    # @param frame_color [Integer] Index of the color to use for the frame.
+    # @param frame_weight [Integer] Width of the frame lines in pixels.
+    # @param frame_style [Symbol] Style of the frame lines (`:solid`, `:dashed`,
+    #   `:dotted`). See `style` option in {#line}.
+    # @param frame_density [Symbol] Density of the frame pattern (`:normal`, `:dense`,
+    #   `:loose`). See `density` option in {#line}.
+    # @return (see #initialize)
+    # @raise [Exception::CanvasError] If any of the plot's elements would go out
+    #   of bounds.
+    # @todo Desirable features:
+    #   * Calculate the Y range automatically based on the function and the X
+    #     range, unless an explicit Y range is supplied.
+    #   * Change plot's orientation (horizontal, or even arbitrary angle).
+    #   * Add other elements, such as text labels, or axes tips (e.g. arrows).
+    #   * Specify drawing precision (in dots or steps), or even calculate it
+    #     based on the function and the supplied range.
+    #   * Allow to have arbitrary line styles for the graph line too.
+    def graph(func, x_from, x_to, y_from, y_to, pos: [0, 0], center: nil, x_scale: 1,
+      y_scale: 1, color: 0, weight: 1, grid: false, grid_color: 0,
+      grid_weight: 1, grid_sep_x: nil, grid_sep_y: nil, grid_steps_x: nil,
+      grid_steps_y: nil, grid_style: :dotted, grid_density: :normal, axes: true,
+      axes_color: 0, axes_weight: 1, axes_style: :solid, axes_density: :normal,
+      origin: false, origin_color: 0, origin_weight: 2, background: false,
+      background_color: 0, background_padding: 1, frame: false, frame_color: 0,
+      frame_weight: 1, frame_style: :solid, frame_density: :normal
+    )
       # Normalize parameters
+      center, origin = origin, center
+      if !origin
+        pos = Geometry::Point.parse(pos || [0, 0])
+        origin = [pos.x - x_scale * x_from, pos.y + y_scale * y_to]
+      end
       origin = Geometry::Point.parse(origin)
+
+      # Background
+      if background
+        rect(
+          # Calculate real position (upper left corner)
+          origin.x + x_scale * x_from - background_padding,
+          origin.y - y_scale * y_to - background_padding,
+
+          # Calculate real dimensions
+          (x_to - x_from).abs * x_scale + 2 * background_padding + 1,
+          (y_to - y_from).abs * y_scale + 2 * background_padding + 1,
+
+          # Stroke and fill color
+          nil, background_color
+        )
+      end
 
       # Grid
       if grid
-        grid_sep_x = (x_to - x_from).abs.to_f / grid_steps_x
-        grid_sep_y = (y_to - y_from).abs.to_f / grid_steps_y
+        grid_sep_x = grid_steps_x ? (x_to - x_from).abs.to_f / grid_steps_x : 10.0 / x_scale if !grid_sep_x
+        grid_sep_y = grid_steps_y ? (y_to - y_from).abs.to_f / grid_steps_y : 10.0 / y_scale if !grid_sep_y
         grid(
+          # Calculate real position (upper left corner)
           origin.x + x_scale * x_from,
           origin.y - y_scale * y_to,
+
+          # Calculate real dimensions
           (x_to - x_from).abs * x_scale,
           (y_to - y_from).abs * y_scale,
-          x_scale * grid_sep_x, y_scale * grid_sep_y,
-          0, 0,
-          color: grid_color,
-          weight: grid_weight,
-          style: grid_style,
+
+          # Calculate real separation between grid lines
+          x_scale * grid_sep_x,
+          y_scale * grid_sep_y,
+
+          # Offset the grid lines so that they're centered at the origin
+          (x_from.abs.to_f % grid_sep_x) * x_scale,
+          (y_to.abs.to_f % grid_sep_y) * y_scale,
+
+          # Grid aspect
+          color:   grid_color,
+          weight:  grid_weight,
+          style:   grid_style,
           density: grid_density
         )
       end
@@ -910,7 +1009,7 @@ module Gifenc
           weight: axes_weight,
           style: axes_style,
           density: axes_density
-        )
+        ) if 0.between?(y_from, y_to)
 
         # Y axis
         line(
@@ -920,14 +1019,46 @@ module Gifenc
           weight: axes_weight,
           style: axes_style,
           density: axes_density
-        )
+        ) if 0.between?(x_from, x_to)
+      end
+
+      # Origin
+      if center
+        circle(origin, origin_weight, nil, origin_color)
       end
 
       # Graph
       curve(
-        -> (t) { [origin.x + x_scale * t, origin.y - y_scale * func.call(t)] },
+        -> (t) {
+          x = origin.x + x_scale * t
+          y = origin.y - y_scale * func.call(t)
+          func.call(t).between?(y_from, y_to) ? [x, y] : nil
+        },
         x_from, x_to, dots: 100, line_color: color, line_weight: weight
       )
+
+      # Frame
+      if frame
+        rect(
+          # Calculate real position (upper left corner)
+          origin.x + x_scale * x_from - background_padding,
+          origin.y - y_scale * y_to - background_padding,
+
+          # Calculate real dimensions
+          (x_to - x_from).abs * x_scale + 2 * background_padding + 1,
+          (y_to - y_from).abs * y_scale + 2 * background_padding + 1,
+
+          # Stroke and fill color
+          frame_color, nil,
+
+          # Aspect
+          weight:  frame_weight,
+          style:   frame_style,
+          density: frame_density
+        )
+      end
+
+      self
     end
 
     # Represents a type of drawing brush, and encapsulates all the logic necessary
