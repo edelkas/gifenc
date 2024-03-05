@@ -1,4 +1,4 @@
-require './lib/gifenc.rb'
+require 'gifenc'
 
 # GIF and graph properties
 DIM       = 128   # GIF width and height

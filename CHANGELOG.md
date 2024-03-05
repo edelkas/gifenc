@@ -1,8 +1,31 @@
 # Changelog
 
-### 0.2.0 (18/Feb/2024)
+### 0.2.0 (05/Mar/2024)
 
-The main addition is a Geometry module with plenty of mathematical methods and operational shortcuts (norms, translations, scaling, rotations, normalization, reflections...). Implemented its usage in the existing drawing primitives.
+A big update, with the main changes being divided in two categories: mathematical methods and drawing methods.
+
+- Added a `Geometry` module that abstracts a lot of mathematical - and more specifically geometrical - functionality, that is useful throughout the program, but particularly for drawing. A Point class is included, which represents both 2D points and vectors, depending on context. This module includes:
+  * Bound checking, calculation of bounding boxes and convex hulls.
+  * Changes of coordinates, cartesian and polar coordinate support, etc.
+  * Point operations, such as translations, dilations / scalings, linear and convex combinations, scalar product, center of mass, etc.
+  * Point transformations, such as rotations, projections and reflections.
+  * Norms (L1, euclidean, supremum), normalization, distances.
+  * Angles, parallelism, orthonality, normal vectors...
+
+- Significantly expanded the drawing functionality, including:
+  * Improved line drawing, and added line styles (dashed, dotted, etc).
+  * Added circles and general (axis-aligned) ellipses.
+  * Added grids, polygonal chains and spirals.
+  * Arbitrary parametric curves and function graphs given a lambda function.
+  * Implemented the flood fill / bucket tool.
+
+Many sample GIFs, showcasing all this new functionality, were added in the [Examples](https://github.com/edelkas/gifenc/tree/master/examples) folder as well.
+
+- Other functionality added includes:
+  * Copy: Ability to copy a region from one image to another.
+  * Compress: Ability to LZW-compress image data on the fly, instead of keeping
+    everything raw in memory until final encode time. Particularly helpful for
+    GIFs with thousands of frames on systems with low memory.
 
 ### 0.1.0 (14/Feb/2024)
 
