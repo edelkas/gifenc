@@ -542,6 +542,26 @@ module Gifenc
       [x0, y0, x1 - x0 + 1, y1 - y0 + 1]
     end
 
+    # Calculate the intersection of multiple rectangles. The rectangles must be
+    # supplied in the usual format of bounding boxes, i.e. `[X, Y, W, H]`,
+    # where `X` and `Y` are the coordinates of the upper left corner of the
+    # rectangle with respect to the image, and `W` and `H` are the width and
+    # height of the rectangle, respectively. The result will be a rectangle
+    # in the same format, if the intersection is non-empty, or `nil` otherwise.
+    # @param *rects [Array<Array<Float>>] The rectangles to intersect.
+    # @return [Array<Float>,nil] The resulting intersection.
+    def self.rect_overlap(*rects)
+      return if rects.empty?
+
+      rect = rects[0]
+      rects[1..-1].each{ |r|
+        rect = rect_overlap_two(rect, r)
+        return if !rect
+      }
+
+      rect
+    end
+
     # Translate a set of points according to a fixed vector. Given a list of
     # points `P1, ... , Pn` and a translation vector `t`, this method will
     # return the transformed list of points `P1 + t, ... , Pn + t`.
@@ -673,7 +693,8 @@ module Gifenc
     # Find the center of mass (barycenter) of a list of points. This will always
     # be contained within the convex hull of the supplied points.
     # @param points [Array<Point>] The list of points.
-    # @return [Point] 
+    # @return [Point] The center of mass of the points.
+    # @raise [Exception::GeometryError] If the list of points is empty.
     def self.center(points)
       raise Exception::GeometryError, "Cannot find center of empty list of points." if points.size == 0
       points.map!{ |p| Point.parse(p) }
@@ -688,6 +709,24 @@ module Gifenc
     # > 0 --> CW
     def self.cw(p, q, r)
       (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x)
+    end
+
+    # Find overlap of 2 rectangles. Used recursively by rect_overlap to find
+    # overlap of N rectangles.
+    def self.rect_overlap_two(rect1, rect2)
+      return nil if !rect1 || !rect2
+
+      x_max = [rect1[0], rect2[0]].max
+      y_max = [rect1[1], rect2[1]].max
+      x_min = [rect1[0] + rect1[2], rect2[0] + rect2[2]].min
+      y_min = [rect1[1] + rect1[3], rect2[1] + rect2[3]].min
+
+      x = x_max
+      y = y_max
+      w = x_min - x_max
+      h = y_min - y_max
+
+      [w, h].min > PRECISION ? [x, y, w, h] : nil
     end
 
   end # Module Geometry
