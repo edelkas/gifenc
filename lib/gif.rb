@@ -177,7 +177,7 @@ module Gifenc
       @images.size.times.each{ |i|
         @images[i].encode(stream)
         if @destroy
-          @images[i].clear
+          @images[i].destroy
           @images[i] = nil
         end
       }

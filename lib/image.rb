@@ -268,13 +268,20 @@ module Gifenc
       self
     end
 
-    # Clear the pixel data of the image. This simply substitutes the contents
+    # Destroy the pixel data of the image. This simply substitutes the contents
     # of the array, hoping that the underlying data will go out of scope and
     # be collected by the garbage collector. This is intended for freeing
     # space and to simulate "destroying" the image.
     # @return (see #initialize)
-    def clear
+    def destroy
       @pixels = nil
+      self
+    end
+
+    # Paint the whole canvas with the base image color.
+    # @return (see #initialize)
+    def clear
+      @pixels = [@color] * (@width * @height)
       self
     end
 
@@ -286,13 +293,16 @@ module Gifenc
     # @param offset [Array<Integer>] The coordinates of the offset of the region
     #   in the source image.
     # @param dim [Array<Integer>] The dimensions of the region, in the form `[W, H]`,
-    #   where W is the width and H is the height of the rectangle to copy.
+    #   where W is the width and H is the height of the rectangle to copy. If
+    #   unspecified (`nil`), the whole source image will be copied.
     # @param dest [Array<Integer>] The coordinates of the destination offset of
     #   the region in this image.
     # @raise [Exception::CanvasError] If the region is out of bounds in either
-    #   the source or the destination images.
+    #   the source or the destination images, or if no source provided.
     # @return (see #initialize)
-    def copy(source: nil, offset: [0, 0], dim: [1, 1], dest: [0, 0])
+    def copy(source: nil, offset: [0, 0], dim: nil, dest: [0, 0])
+      raise Exception::CanvasError, "Cannot copy, no source provided." if !source
+      dim = [source.width, source.height] unless dim
       offset = Geometry::Point.parse(offset)
       dim    = Geometry::Point.parse(dim)
       dest   = Geometry::Point.parse(dest)
