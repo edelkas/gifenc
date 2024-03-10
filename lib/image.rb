@@ -289,7 +289,7 @@ module Gifenc
     # dimensions of the region can be specified.
     # @note The two images are assumed to have the same color table, since what
     #   is copied is the color indexes.
-    # @param source [Image] The source image to copy the contents from.
+    # @param src [Image] The source image to copy the contents from.
     # @param offset [Array<Integer>] The coordinates of the offset of the region
     #   in the source image.
     # @param dim [Array<Integer>] The dimensions of the region, in the form `[W, H]`,
@@ -297,16 +297,20 @@ module Gifenc
     #   unspecified (`nil`), the whole source image will be copied.
     # @param dest [Array<Integer>] The coordinates of the destination offset of
     #   the region in this image.
+    # @param trans [Boolean] If enabled, the pixels from the source image whose
+    #   color is the transparent one (for the source image) won't be copied over,
+    #   effectively achieving the usual GIF composition with basic transparency.
+    #   It's a bit slower as a consequence.
     # @raise [Exception::CanvasError] If the region is out of bounds in either
     #   the source or the destination images, or if no source provided.
     # @return (see #initialize)
-    def copy(source: nil, offset: [0, 0], dim: nil, dest: [0, 0])
-      raise Exception::CanvasError, "Cannot copy, no source provided." if !source
-      dim = [source.width, source.height] unless dim
+    def copy(src: nil, offset: [0, 0], dim: nil, dest: [0, 0], trans: false)
+      raise Exception::CanvasError, "Cannot copy, no source provided." if !src
+      dim = [src.width, src.height] unless dim
       offset = Geometry::Point.parse(offset)
       dim    = Geometry::Point.parse(dim)
       dest   = Geometry::Point.parse(dest)
-      if !source.bound_check(offset) || !source.bound_check(offset + dim - [1, 1])
+      if !src.bound_check(offset) || !src.bound_check(offset + dim - [1, 1])
         raise Exception::CanvasError, "Cannot copy, region out of bounds in source image."
       end
       if !bound_check(dest) || !bound_check(dest + dim - [1, 1])
@@ -317,9 +321,22 @@ module Gifenc
       dy = dest.y.round
       ox = offset.x.round
       oy = offset.y.round
-      dim.y.round.times.each{ |y|
-        @pixels[(dy + y) * @width + dx, dim.x.round] = source.pixels[(oy + y) * source.width + ox, dim.x.round]
-      }
+      bg = src.trans_color
+
+      if trans && bg
+        c = nil
+        dim.y.round.times.each{ |y|
+          dim.x.round.times.each{ |x|
+            c = src[ox + x, oy + y]
+            self[dx + x, dy + y] = c unless c == bg
+          }
+        }
+      else
+        len = dim.x.round
+        dim.y.round.times.each{ |y|
+          @pixels[(dy + y) * @width + dx, len] = src.pixels[(oy + y) * src.width + ox, len]
+        }
+      end
 
       self
     end
