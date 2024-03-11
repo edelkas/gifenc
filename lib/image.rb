@@ -186,6 +186,7 @@ module Gifenc
     # @return (see #delay)
     # @see (see #delay)
     def delay=(value)
+      return if !value
       @gce = Extension::GraphicControl.new if !@gce
       @gce.delay = value
     end
@@ -207,6 +208,7 @@ module Gifenc
     # @return (see #disposal)
     # @see (see #disposal)
     def disposal=(value)
+      return if !value
       @gce = Extension::GraphicControl.new if !@gce
       @gce.disposal = value
     end
@@ -226,6 +228,7 @@ module Gifenc
     # @return (see #trans_color)
     # @see (see #trans_color)
     def trans_color=(value)
+      return if !value
       @gce = Extension::GraphicControl.new if !@gce
       @gce.trans_color = value
     end
@@ -285,8 +288,12 @@ module Gifenc
       self
     end
 
-    # Copy a rectangular region from another image to this one. The offsets and
-    # dimensions of the region can be specified.
+    # Copy a rectangular region from another image to this one. The dimension of
+    # the region, as well as the source offset and the destination offset, can
+    # be provided. If the region would go out of bounds, the function will
+    # just gracefully crop it rather than failing. Additionally, a more restrictive
+    # bounding box (smaller than the full image) can also be provided, to where
+    # the copying will be confined.
     # @note The two images are assumed to have the same color table, since what
     #   is copied is the color indexes.
     # @param src [Image] The source image to copy the contents from.
@@ -301,40 +308,65 @@ module Gifenc
     #   color is the transparent one (for the source image) won't be copied over,
     #   effectively achieving the usual GIF composition with basic transparency.
     #   It's a bit slower as a consequence.
-    # @raise [Exception::CanvasError] If the region is out of bounds in either
-    #   the source or the destination images, or if no source provided.
+    # @param bbox [Array<Integer>] The bounding box (with respect to this image)
+    #   where the copying should be restricted to. Everything outside this region
+    #   will be left untouched. If unspecified (`nil`), this will be the whole
+    #   image. As usual, the format is `[X, Y, W, H]`, where `[X, Y]` are the
+    #   coordinates of the upper left pixel, and `[W, H]` are the pixel width
+    #   and height, respectively.
+    # @raise [Exception::CanvasError] If no source provided.
     # @return (see #initialize)
-    def copy(src: nil, offset: [0, 0], dim: nil, dest: [0, 0], trans: false)
+    def copy(src: nil, offset: [0, 0], dim: nil, dest: [0, 0], trans: false, bbox: nil)
       raise Exception::CanvasError, "Cannot copy, no source provided." if !src
-      dim = [src.width, src.height] unless dim
-      offset = Geometry::Point.parse(offset)
-      dim    = Geometry::Point.parse(dim)
-      dest   = Geometry::Point.parse(dest)
-      if !src.bound_check(offset) || !src.bound_check(offset + dim - [1, 1])
-        raise Exception::CanvasError, "Cannot copy, region out of bounds in source image."
-      end
-      if !bound_check(dest) || !bound_check(dest + dim - [1, 1])
-        raise Exception::CanvasError, "Cannot copy, region out of bounds in destination image."
-      end
 
-      dx = dest.x.round
-      dy = dest.y.round
-      ox = offset.x.round
-      oy = offset.y.round
+      # Parse parameters
+      bbox   = [0, 0, @width, @height] unless bbox
+      dim    = [src.width, src.height] unless dim
+      offset = Geometry::Point.parse(offset).round
+      dim    = Geometry::Point.parse(dim).round
+      dest   = Geometry::Point.parse(dest).round
+
+      # Normalize main bbox
+      bbox = Geometry.rect_overlap(bbox, [0, 0, @width, @height])
+      return if !bbox
+      bbox.map!(&:round)
+
+      # Normalize source bbox
+      src_bbox  = [offset.x, offset.y, dim.x, dim.y]
+      src_bbox  = Geometry.rect_overlap(src_bbox, [0, 0, src.width, src.height])
+      return if !src_bbox
+      offset    = Geometry::Point.parse(src_bbox[0, 2])
+      dim       = Geometry::Point.parse(src_bbox[2, 2])
+
+      # Normalize destination bbox
+      dest_bbox = [dest.x, dest.y, dim.x, dim.y]
+      overlap = Geometry.rect_overlap(dest_bbox, bbox)
+      return if !dest_bbox
+      dest      = Geometry::Point.parse(overlap[0, 2])
+      dim       = Geometry::Point.parse(overlap[2, 2])
+
+      # Transform coordinates of source to coordinates of destination
+      offset += Gifenc::Geometry.transform([dest], dest_bbox)[0]
+
+      # Handy fetch
+      dx, dy = dest.x.round,   dest.y.round
+      ox, oy = offset.x.round, offset.y.round
+      lx, ly = dim.x.round,    dim.y.round
       bg = src.trans_color
 
+      # Copy pixel data. We use a different, slightly faster, algorithm if we
+      # don't have a bg color check to make, by directly copying full rows.
       if trans && bg
         c = nil
-        dim.y.round.times.each{ |y|
-          dim.x.round.times.each{ |x|
+        ly.times.each{ |y|
+          lx.times.each{ |x|
             c = src[ox + x, oy + y]
             self[dx + x, dy + y] = c unless c == bg
           }
         }
       else
-        len = dim.x.round
-        dim.y.round.times.each{ |y|
-          @pixels[(dy + y) * @width + dx, len] = src.pixels[(oy + y) * src.width + ox, len]
+        ly.times.each{ |y|
+          @pixels[(dy + y) * @width + dx, lx] = src.pixels[(oy + y) * src.width + ox, lx]
         }
       end
 
@@ -486,9 +518,11 @@ module Gifenc
     #   indicates the position of the line with respect to the coordinates. It
     #   must be in the interval [-1, 1]. A value of `0` centers the line in its
     #   width, a value of `-1` draws it on one side, and `1` on the other.
-    # @param bbox [Array<Integer>] Bounding box determining the region in which
-    #   the line must be contained. Anything outside it won't be drawn. If
-    #   `nil`, this defaults to the whole image.
+    # @param bbox [Array<Integer>] Bounding box determining the region to which
+    #   the drawing will be restricted, in the format `[X, Y, W, H]`, where `[X, Y]`
+    #   are the coordinates of the upper left corner of the box, and `[W, H]` are
+    #   the pixel dimensions. If unspecified (`nil`), this defaults to the whole
+    #   image.
     # @param avoid [Array<Integer>] List of colors over which the line should
     #   NOT be drawn.
     # @param style [Symbol] Named style / pattern of the line. Can be `:solid`
@@ -557,19 +591,29 @@ module Gifenc
     #   * For `0` the border is centered around the boundary.
     #   * For `1` the border is entirely contained within the boundary.
     #   * For `-1` the border is entirely surrounding the boundary.
+    # @param style [Symbol] Border line style (`:solid`, `:dashed`, `:dotted`).
+    #   See `style` param in {#line}).
+    # @param density [Symbol] Border line pattern density (`:normal`, `:dense`,
+    #   `:loose`). See `density` param in {#line}.
+    # @param bbox [Array<Integer>] Bounding box determining the region to which
+    #   the drawing will be restricted. See `bbox` param in {#line}.
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the rectangle would go out of bounds.
     def rect(x, y, w, h, stroke = nil, fill = nil, weight: 1, anchor: 1,
-      style: :solid, density: :normal)
-      # Check coordinates
-      x = x.round
-      y = y.round
-      w = w.round
-      h = h.round
-      x0, y0, x1, y1 = x, y, x + w - 1, y + h - 1
-      if !Geometry.bound_check([[x0, y0], [x1, y1]], self, true)
-        raise Exception::CanvasError, "Rectangle out of bounds."
-      end
+      style: :solid, density: :normal, bbox: nil)
+      # Normalize bbox
+      bbox = [0, 0, @width, @height] unless bbox
+      bbox = Geometry.rect_overlap(bbox, [0, 0, @width, @height])
+      return if !bbox
+      bbox.map!(&:round)
+
+      # Intersect bbox with rectangle
+      rect_bbox = Geometry.rect_overlap(bbox, [x, y, w, h])
+      return if !rect_bbox
+      x0 = rect_bbox[0].round
+      y0 = rect_bbox[1].round
+      x1 = (rect_bbox[0] + rect_bbox[2]).round - 1
+      y1 = (rect_bbox[1] + rect_bbox[3]).round - 1
 
       # Fill rectangle, if provided
       if fill
@@ -586,7 +630,7 @@ module Gifenc
           o = ((weight - 1) / 2.0 * anchor).round
           w -= 2 * o - (weight % 2 == 0 ? 1 : 0)
           h -= 2 * o - (weight % 2 == 0 ? 1 : 0)
-          rect(x + o, y + o, w, h, stroke, weight: weight, anchor: 0)
+          rect(x0 + o, y0 + o, w, h, stroke, weight: weight, anchor: 0)
         else
           points = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
           4.times.each{ |i|
