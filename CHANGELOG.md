@@ -1,5 +1,13 @@
 # Changelog
 
+### 0.2.1 (18/Mar/2024)
+
+Improved the image copy method:
+
+* Automatically corrects both source and destination offsets / dimensions to prevent any out of bounds errors.
+* Allows to "copy with transparency", which will copy every color except for the transparent one.
+* Allows to specify a bounding box to which the copying should be restricted to.
+
 ### 0.2.0 (05/Mar/2024)
 
 A big update, with the main changes being divided in two categories: mathematical methods and drawing methods.

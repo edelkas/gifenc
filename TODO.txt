@@ -1,13 +1,15 @@
 Roadmap:
-  0.2.1
-    Compressed mode (compress each frame on the fly to save memory)
-  0.2.2
-    Font parsing, Text rendering
   0.3.0
-    Decoding (everything I can currently encode)
+    Add C extension to speed up some processes, specially LZW encoding.
+  0.3.1
+    Compressed mode (compress each frame on the fly to save memory)
+  0.3.2
+    Font parsing, Text rendering
   0.4.0
+    Decoding (everything I can currently encode)
+  0.5.0
     Full GIF specs (Plain Text & Comment extensions, interlacing)
-  0.4.1
+  0.5.1
     Add Rake tests, slowly add new features
     LZW code size below 8 bits
 

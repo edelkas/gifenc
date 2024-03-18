@@ -1,16 +1,16 @@
 Gem::Specification.new do |s|
   s.name        = 'gifenc'
-  s.version     = '0.2.0'
+  s.version     = '0.2.1'
   s.summary     = 'GIF encoder, decoder and editor in pure Ruby'
   s.description = <<-EOT
     This library provides GIF encoding, decoding and editing capabilities natively
     within Ruby. It aims to support the complete GIF specification for both
-    encoding and decoding, as well as having a decent editing functionality, while
+    encoding and decoding, as well as having decent editing functionality, while
     maintaining a succint syntax.
 
-    The current version is still preliminar, and only encoding is working, together
-    with a decent drawing suite. The gem is actively developed and decoding will
-    soon follow, so stay tuned if you're interested!
+    The current version only supports encoding, together with a decent drawing suite
+    The gem is actively developed and decoding will soon follow, so stay tuned
+    if you're interested!
   EOT
   s.authors     = ['edelkas']
   s.files       = Dir['lib/**/*', 'README.md', 'CHANGELOG.md', 'docs/**/*', '.yardopts']

@@ -548,7 +548,7 @@ module Gifenc
     # rectangle with respect to the image, and `W` and `H` are the width and
     # height of the rectangle, respectively. The result will be a rectangle
     # in the same format, if the intersection is non-empty, or `nil` otherwise.
-    # @param *rects [Array<Array<Float>>] The rectangles to intersect.
+    # @param rects [Array<Array<Float>>] The rectangles to intersect.
     # @return [Array<Float>,nil] The resulting intersection.
     def self.rect_overlap(*rects)
       return if rects.empty?

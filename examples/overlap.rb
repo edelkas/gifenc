@@ -1,4 +1,4 @@
-require './lib/gifenc.rb'
+require 'gifenc'
 
 # GIF properties
 DIM    = 128
