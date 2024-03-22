@@ -5,9 +5,10 @@
 [![Documentation](https://img.shields.io/badge/docs-grey.svg)](https://www.rubydoc.info/gems/gifenc)
 [![Examples](https://img.shields.io/badge/examples-grey.svg)](https://github.com/edelkas/gifenc/tree/master/examples)
 
-A pure Ruby library with no external dependencies that allows to encode, decode and edit GIFs. Its main goals are to:
+A Ruby library with no external dependencies that allows to encode, decode and edit GIFs. Its main goals are to:
 
 * Support the full GIF [specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt) for both encoding and decoding.
+* Achieve high encoding and decoding speeds via a native C extension.
 * Have a decent suite of editing functionalities, so that the need for external tools is avoided as much as possible.
 * Have a succint and comfortable syntax to use.
 
