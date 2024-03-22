@@ -21,6 +21,7 @@ Gem::Specification.new do |s|
     "documentation_uri" => 'https://www.rubydoc.info/gems/gifenc',
     "changelog_uri"     => 'https://github.com/edelkas/gifenc/blob/master/CHANGELOG.md'
   }
-  s.add_runtime_dependency('lzwrb')
   s.extra_rdoc_files = Dir['README.md', 'CHANGELOG.md', 'docs/**/*']
+  s.extensions = ["ext/extconf.rb"]
+  s.require_paths = ["lib", "ext"]
 end

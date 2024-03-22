@@ -56,7 +56,7 @@ module Gifenc
   DEFAULT_EXHIBIT_TIME = 100
 end
 
-require 'lzwrb'
+require_relative 'cgifenc'
 
 require_relative 'errors.rb'
 require_relative 'util.rb'

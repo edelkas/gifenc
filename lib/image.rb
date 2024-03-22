@@ -155,7 +155,8 @@ module Gifenc
       @lct.encode(stream) if @lct
 
       # LZW-compressed image data
-      stream << (@compressed ? @pixels : Util.lzw_encode(@pixels.pack('C*'.freeze)))
+      stream << "\x08".b.freeze
+      stream << (@compressed ? @pixels : Gifenc.lzw_encode(@pixels.pack('C*'.freeze)))
     end
 
     # Create a duplicate copy of this image.
@@ -416,7 +417,7 @@ module Gifenc
 
     def compress
       raise Exception::CanvasError, "Image is already compressed." if @compressed
-      @pixels = Util.lzw_encode(@pixels.pack('C*'))
+      @pixels = Gifenc.lzw_encode(@pixels.pack('C*'.freeze))
       @compressed = true
     end
 
