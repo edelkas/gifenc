@@ -115,6 +115,7 @@ module Gifenc
     # @param bg          [Integer]    Background color (see {#bg}).
     # @param ar          [Integer]    Pixel aspect ratio (see {#ar}).
     # @param destroy     [Boolean]    Auto-destroy each image right after encoding (see {#destroy}).
+    # @return [Gif] The GIF object.
     def initialize(
         width,
         height,
@@ -149,6 +150,7 @@ module Gifenc
 
       # Other
       @destroy = destroy
+      @file = nil
 
       # If we want the GIF to loop, then add the Netscape Extension
       self.loops = loops
@@ -157,23 +159,8 @@ module Gifenc
     # Encode all the data as a GIF file and write it to a stream.
     # @param stream [IO] Stream to write the data to.
     def encode(stream)
-      # Header
-      stream << HEADER
+      encode_head(stream)
 
-      # Logical Screen Descriptor
-      stream << [@width, @height].pack('S<2')
-      flags = 0
-      flags |= @gct.global_flags if @gct
-      stream << [flags].pack('C')
-      stream << [@bg, @ar].pack('C2')
-
-      # Global Color Table
-      @gct.encode(stream) if @gct
-
-      # Global extensions
-      @extensions.each{ |e| e.encode(stream) }
-
-      # Encode frames containing image data (and local extensions)
       @images.size.times.each{ |i|
         @images[i].encode(stream)
         if @destroy
@@ -182,17 +169,20 @@ module Gifenc
         end
       }
 
-      # Trailer
-      stream << TRAILER
+      encode_tail(stream)
     end
 
     # Change the dimensions of the GIF's logical screen, i.e, its canvas.
+    # @param width [Integer] The new width of the GIF, in pixels.
+    # @param height [Integer] The new height of the GIF, in pixels.
     # @todo We should probably test what happens when images are out of the
     #   logical screen's bounds, and perform integrity checks here if necessary,
     #   perhaps cropping the images present in this GIF.
+    # @return (see #initialize)
     def resize(width, height)
       @width = width
       @height = height
+      self
     end
 
     # Overload for the loop count so that we can appropriately create or delete
@@ -215,7 +205,7 @@ module Gifenc
     # than 256 colors in a GIF image), it's usually mandatory to do this, as most
     # decoders will actually assume multiple images in a GIF are animation frames,
     # rather than layers of a still image, if the Netscape Extension is present.
-    # @return [Gif] The GIF object.
+    # @return (see #initialize)
     def still
       self.loops = 0
       self
@@ -223,7 +213,7 @@ module Gifenc
 
     # Shortcut to loop the GIF indefinitely. This sets the loops count to -1,
     # which translates to 0 in the Netscape Extension.
-    # @return [Gif] The GIF object.
+    # @return (see #initialize)
     def cycle
       self.loops = -1
       self
@@ -235,7 +225,7 @@ module Gifenc
     #   not desired for looping GIFs, because then the first frame would appear
     #   twice in a row (at the start, and at the end). Useful for non-looping
     #   boomerangs.
-    # @return [Gif] The GIF object.
+    # @return (see #initialize)
     def boomerang(first: false)
       (@images.size - 2).downto(first ? 0 : 1).each{ |i|
         @images << @images[i].dup
@@ -244,11 +234,14 @@ module Gifenc
     end
 
     # Shortcut to modify the delay of the GIF's last frame, intended to
-    # showcase the final result before looping it.
+    # showcase the final result before looping it. Call this when all frames
+    # have already been added to the {#images} list.
     # @param delay [Integer] The time, in 1/100ths of a second, to show the last
     #   frame.
-    # @return [Gif] The GIF object.
+    # @return (see #initialize)
+    # @raise [Exception::GifError] If there are no frames in the GIF yet.
     def exhibit(delay = DEFAULT_EXHIBIT_TIME)
+      raise Exception::GifError, "No frames in the GIF yet." if @images.empty?
       @images.last.delay = delay
       self
     end
@@ -268,6 +261,86 @@ module Gifenc
       File.open(filename, 'wb') do |f|
         encode(f)
       end
+    end
+
+    # Open the GIF file and initialize it by writing the start to disk. This includes
+    # everything before the actual image data, i.e., the header, logical screen
+    # descriptor, global color table and global extensions. This is useful for
+    # dynamically building a GIF file and saving it to disk on the fly, instead of
+    # keeping all images in memory and only writing them at the end using {#write}
+    # or {#save}. Instead, one can open the GIF, use the {#add} method to write
+    # images, and finally {#close} it. Intended to reduce memory footprint, specially
+    # useful for GIFs with thousands of frames on systems with low memory.
+    # @param filename [String] The name to use for the GIF file.
+    # @see #close
+    # @see #add
+    # @raise [Exception::GifError] If the GIF has already been opened.
+    def open(filename)
+      raise Exception::GifError, "The GIF has already been opened." if open?
+      @file = File.open(filename, "wb")
+      encode_head(@file)
+    end
+
+    # Finish writing the GIF to disk and close it. This writes the trailer to the
+    # file and immediately closes it. Only use this when the GIF has been previously
+    # opened with {#open}, intended for dynamically creating a GIF and writing
+    # it to disk on the fly. To keep everything in memory and just export at the
+    # the end, use {#write} or {#save} instead.
+    # @see #open
+    # @see #add
+    # @raise [Exception::GifError] If the GIF had not been opened.
+    def close
+      raise Exception::GifError, "The GIF hasn't been opened." if !open?
+      encode_tail(@file)
+      @file.close
+    end
+
+    # Add an image to the GIF and write to disk now. Only use this if the GIF
+    # been previously opened with {#open}. To instead keep all images in memory
+    # and just write everything at the end, simply add the images to the {#images}
+    # list and call {#write} or {#save} at the end, which doesn't require to open
+    # or close the GIF.
+    # @param image [Image] The image to add to the file stream.
+    # @raise [Exception::GifError] If the GIF had not been opened.
+    def add(image)
+      raise Exception::GifError, "The GIF hasn't been opened." if !open?
+      image.encode(@file)
+    end
+
+    # Checks whether the GIF file has been opened and initialized already or not.
+    # @return [Boolean] Is the GIF file open?
+    def open?
+      @file && !@file.closed?
+    end
+
+    private
+
+    # Encode the header, logical screen descriptor, global color table, and
+    # global extensions present in the GIF. In other words, encode everything
+    # that comes before the actual image data.
+    def encode_head(stream)
+      # Header
+      stream << HEADER
+
+      # Logical Screen Descriptor
+      stream << [@width, @height].pack('S<2')
+      flags = 0
+      flags |= @gct.global_flags if @gct
+      stream << [flags].pack('C')
+      stream << [@bg, @ar].pack('C2')
+
+      # Global Color Table
+      @gct.encode(stream) if @gct
+
+      # Global extensions
+      @extensions.each{ |e| e.encode(stream) }
+    end
+
+    # Encode the trailer. In other words, encode everything that comes after the
+    # actual image data.
+    def encode_tail(stream)
+      # Trailer
+      stream << TRAILER
     end
   end
 end
