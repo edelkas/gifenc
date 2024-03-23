@@ -348,5 +348,7 @@ VALUE lzw_encode(VALUE self, VALUE data)
   LZW_GenerateStream(&encResult, len, str, initDictLen, initCodeLen);
 
   // Build output
-  return rb_str_new((const char*) encResult.pRasterData, encResult.sizeRasterData);
+  VALUE rb_str = rb_str_new((const char*) encResult.pRasterData, encResult.sizeRasterData);
+  free(encResult.pRasterData);
+  return rb_str;
 }

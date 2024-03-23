@@ -285,7 +285,7 @@ module Gifenc
     # Paint the whole canvas with the base image color.
     # @return (see #initialize)
     def clear
-      @pixels = [@color] * (@width * @height)
+      @pixels.map!{ @color }
       self
     end
 
@@ -379,11 +379,18 @@ module Gifenc
     # color specified by {#color}.
     # @return (see #initialize)
     def resize(width, height)
-      @pixels = @pixels.each_slice(@width).map{ |row|
-        width > @width ? row + [@color] * (width - @width) : row.take(width)
-      }
-      @pixels = height > @height ? @pixels + ([@color] * width) * (height - @height) : @pixels.take(height)
-      @pixels.flatten!
+      if @pixels.size == 0
+        @pixels = [@color] * (width * height)
+      else
+        @pixels = @pixels.each_slice(@width).map{ |row|
+          width > @width ? row + [@color] * (width - @width) : row.take(width)
+        }
+        @pixels = height > @height ? @pixels + [[@color] * width] * (height - @height) : @pixels.take(height)
+        @pixels.flatten!
+      end
+
+      @width  = width
+      @height = height
       self
     end
 
