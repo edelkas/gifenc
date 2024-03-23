@@ -51,7 +51,7 @@ module Gifenc
 
     # Contains the table based image data (the color indexes for each pixel).
     # Use the {#replace} method to bulk change the pixel data.
-    # @return [Array<Integer>] Pixel data.
+    # @return [String] Pixel data as a binary string.
     # @see #replace
     attr_reader :pixels
 
@@ -126,7 +126,7 @@ module Gifenc
 
       # Image data
       @color  = color
-      @pixels = [@color] * (@width * @height)
+      @pixels = (@color.chr * (@width * @height)).b
 
       # Extended features
       if gce || delay || trans_color || disposal
@@ -156,7 +156,7 @@ module Gifenc
 
       # LZW-compressed image data
       stream << "\x08".b.freeze
-      stream << (@compressed ? @pixels : Gifenc.lzw_encode(@pixels.pack('C*'.freeze)))
+      stream << (@compressed ? @pixels : Gifenc.lzw_encode(@pixels))
     end
 
     # Create a duplicate copy of this image.
@@ -242,7 +242,7 @@ module Gifenc
       if row < 0 || row >= @height
         raise Exception::CanvasError, "Row out of bounds."
       end
-      @pixels[row * @width, @width]
+      @pixels[row * @width, @width].bytes
     end
 
     # Fetch one column of pixels from the image.
@@ -253,22 +253,22 @@ module Gifenc
       if col < 0 || col >= @width
         raise Exception::CanvasError, "Column out of bounds."
       end
-      @height.times.map{ |r| self[col, r] }
+      @height.times.map{ |r| self[col, r].ord }
     end
 
     # Change the pixel data (color indices) of the image. The size of the array
     # must match the current dimensions of the canvas, otherwise a manual resize
     # is first required.
-    # @param pixels [Array<Integer>] The new pixel data to fill the canvas.
+    # @param pixels [String] The new pixel data to fill the canvas, as a binary string.
     # @raise [Exception::CanvasError] If the supplied pixel data length doesn't match the
     #   canvas's current dimensions.
     # @return (see #initialize)
     def replace(pixels)
-      if pixels.size != @width * @height
+      if pixels.length != @width * @height
         raise Exception::CanvasError, "Pixel data doesn't match image dimensions. Please\
           resize the image first."
       end
-      @pixels = pixels
+      @pixels = pixels.b
       self
     end
 
@@ -285,7 +285,7 @@ module Gifenc
     # Paint the whole canvas with the base image color.
     # @return (see #initialize)
     def clear
-      @pixels = [@color] * (@width * @height)
+      @pixels = (@color.chr * (@width * @height)).b
       self
     end
 
@@ -364,14 +364,15 @@ module Gifenc
     # color specified by {#color}.
     # @return (see #initialize)
     def resize(width, height)
-      if @pixels.size == 0
-        @pixels = [@color] * (width * height)
+      color = @color.chr
+      if @pixels.length == 0
+        @pixels = color * (width * height)
       else
-        @pixels = @pixels.each_slice(@width).map{ |row|
-          width > @width ? row + [@color] * (width - @width) : row.take(width)
+        @pixels = @pixels.unpack("a#{@width}" * @height).map{ |row|
+          width > @width ? row + color * (width - @width) : row.take[0 ... width]
         }
-        @pixels = height > @height ? @pixels + [[@color] * width] * (height - @height) : @pixels.take(height)
-        @pixels.flatten!
+        @pixels = height > @height ? @pixels + [color * width] * (height - @height) : @pixels.take(height)
+        @pixels = @pixels.join.b
       end
 
       @width  = width
@@ -409,7 +410,7 @@ module Gifenc
 
     def compress
       raise Exception::CanvasError, "Image is already compressed." if @compressed
-      @pixels = Gifenc.lzw_encode(@pixels.pack('C*'.freeze))
+      @pixels = Gifenc.lzw_encode(@pixels)
       @compressed = true
     end
 
@@ -426,7 +427,7 @@ module Gifenc
     # See also {#get}.
     # @param x [Integer] The X coordinate of the pixel.
     # @param y [Integer] The Y coordinate of the pixel.
-    # @return [Integer] The color index of the pixel.
+    # @return [Char] The color index of the pixel, as a 1-char binary string.
     def [](x, y)
       @pixels[y * @width + x]
     end
@@ -435,10 +436,10 @@ module Gifenc
     # See also {#set}.
     # @param x [Integer] The X coordinate of the pixel.
     # @param y [Integer] The Y coordinate of the pixel.
-    # @param color [Integer] The new color index of the pixel.
-    # @return [Integer] The new color index of the pixel.
+    # @param color [Char] The new color index of the pixel, as a 1-char binary string.
+    # @return [Char] The new color index of the pixel.
     def []=(x, y, color)
-      @pixels[y * @width + x] = color & 0xFF
+      @pixels[y * @width + x] = color
     end
 
     # Get the values (color _index_) of a list of pixels safely (i.e. with bound
@@ -451,7 +452,7 @@ module Gifenc
       bound_check([points.min_by(&:first)[0], points.min_by(&:last)[1]], false)
       bound_check([points.max_by(&:first)[0], points.max_by(&:last)[1]], false)
       points.map{ |p|
-        @pixels[p[1] * @width + p[0]]
+        @pixels[p[1] * @width + p[0]].ord
       }
     end
 
@@ -470,7 +471,7 @@ module Gifenc
       bound_check([points.max_by(&:first)[0], points.max_by(&:last)[1]], false)
       single = colors.is_a?(Integer)
       points.each_with_index{ |p, i|
-        @pixels[p[1] * @width + p[0]] = single ? color & 0xFF : colors[i] & 0xFF
+        @pixels[p[1] * @width + p[0]] = single ? (color & 0xFF).chr : (colors[i] & 0xFF).chr
       }
       self
     end
@@ -483,6 +484,7 @@ module Gifenc
     # @return (see #initialize)
     # @raise [Exception::CanvasError] If the specified point is out of bounds.
     def fill(x, y, color)
+      color = color.chr if color.is_a?(Integer)
       bound_check([x, y], false)
       return self if self[x, y] == color
       fill_span(x, y, self[x, y], color)
@@ -516,8 +518,6 @@ module Gifenc
     #   are the coordinates of the upper left corner of the box, and `[W, H]` are
     #   the pixel dimensions. If unspecified (`nil`), this defaults to the whole
     #   image.
-    # @param avoid [Array<Integer>] List of colors over which the line should
-    #   NOT be drawn.
     # @param style [Symbol] Named style / pattern of the line. Can be `:solid`
     #   (default), `:dashed` and `:dotted`. Fine grained control can be obtained
     #   with the `pattern` option.
@@ -536,7 +536,7 @@ module Gifenc
     # @raise [Exception::CanvasError] If the line would go out of bounds.
     # @todo Add support for anchors and anti-aliasing, better brushes, etc.
     def line(p1: nil, p2: nil, vector: nil, angle: nil, direction: nil,
-      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil, avoid: [],
+      length: nil, color: 0, weight: 1, anchor: 0, bbox: nil,
       style: :solid, density: :normal, pattern: nil, pattern_offset: 0)
       # Determine start and end points
       raise Exception::CanvasError, "The line start must be specified." if !p1
@@ -563,7 +563,7 @@ module Gifenc
       brush = Brush.square(weight, color, [a.x, a.y])
       steps.times.each_with_index{ |s|
         if (s - pattern_offset) % pattern.sum < pattern[0]
-          brush.draw(point.x.round, point.y.round, self, bbox: bbox, avoid: avoid)
+          brush.draw(point.x.round, point.y.round, self, bbox: bbox)
         end
         point += delta
       }
@@ -607,6 +607,10 @@ module Gifenc
       y0 = rect_bbox[1].round
       x1 = (rect_bbox[0] + rect_bbox[2]).round - 1
       y1 = (rect_bbox[1] + rect_bbox[3]).round - 1
+
+      # Normalize colors
+      stroke = stroke.chr if stroke && stroke.is_a?(Integer)
+      fill = fill.chr if fill && fill.is_a?(Integer)
 
       # Fill rectangle, if provided
       if fill
@@ -726,6 +730,8 @@ module Gifenc
       if !Geometry.bound_check([upper, lower, left, right], self, true)
         raise Exception::CanvasError, "Ellipse out of bounds."
       end
+      stroke = stroke.chr if stroke && stroke.is_a?(Integer)
+      fill = fill.chr if fill && fill.is_a?(Integer)
       if stroke
         weight = [weight.to_i, 1].max
         if weight > [a, b].min
@@ -741,8 +747,8 @@ module Gifenc
           midpoint1 = ((c.y - y) * @width + c.x).round
           midpoint2 = ((c.y + y) * @width + c.x).round if y > 0
           partial_r = (y > 0 ? (a ** 2 - f * (y - 0.5) ** 2) ** 0.5 : a).round
-          @pixels[midpoint1 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1)
-          @pixels[midpoint2 - partial_r, 2 * partial_r + 1] = [fill] * (2 * partial_r + 1) if y > 0
+          @pixels[midpoint1 - partial_r, 2 * partial_r + 1] = fill * (2 * partial_r + 1)
+          @pixels[midpoint2 - partial_r, 2 * partial_r + 1] = fill * (2 * partial_r + 1) if y > 0
         }
       end
 
@@ -756,10 +762,10 @@ module Gifenc
           if style == :grid
             border = [weight + partial_r - prev_r, 1 + partial_r].min
             (0 ... [weight, y + 1].min).each{ |w|
-              @pixels[midpoint1 - partial_r                + w * @width, border] = [stroke] * border
-              @pixels[midpoint1 + partial_r - (border - 1) + w * @width, border] = [stroke] * border
-              @pixels[midpoint2 - partial_r                - w * @width, border] = [stroke] * border if y > 0
-              @pixels[midpoint2 + partial_r - (border - 1) - w * @width, border] = [stroke] * border if y > 0
+              @pixels[midpoint1 - partial_r                + w * @width, border] = stroke * border
+              @pixels[midpoint1 + partial_r - (border - 1) + w * @width, border] = stroke * border
+              @pixels[midpoint2 - partial_r                - w * @width, border] = stroke * border if y > 0
+              @pixels[midpoint2 + partial_r - (border - 1) - w * @width, border] = stroke * border if y > 0
             }
             prev_r = partial_r
           elsif style == :smooth
@@ -768,10 +774,10 @@ module Gifenc
             f2 = (a2.to_f / b2) ** 2
             partial_r2 = (y > 0 ? (a2 ** 2 >= f2 * (y - 0.5) ** 2 ? (a2 ** 2 - f2 * (y - 0.5) ** 2) ** 0.5 : -1) : a2).round
             border = partial_r - partial_r2
-            @pixels[midpoint1 - partial_r               , border] = [stroke] * border
-            @pixels[midpoint1 + partial_r - (border - 1), border] = [stroke] * border
-            @pixels[midpoint2 - partial_r               , border] = [stroke] * border if y > 0
-            @pixels[midpoint2 + partial_r - (border - 1), border] = [stroke] * border if y > 0
+            @pixels[midpoint1 - partial_r               , border] = stroke * border
+            @pixels[midpoint1 + partial_r - (border - 1), border] = stroke * border
+            @pixels[midpoint2 - partial_r               , border] = stroke * border if y > 0
+            @pixels[midpoint2 + partial_r - (border - 1), border] = stroke * border if y > 0
           end
         }
       end
@@ -1192,13 +1198,12 @@ module Gifenc
       # @param color [Integer] Index of the color in the color table to use.
       # @param bbox [Array<Integer>] Bounding box determining the drawing region,
       #   in the format `[X, Y, W, H]`.
-      # @param avoid [Array<Integer>] List of colors over which the brush should
-      #   NOT paint.
-      def draw(x, y, img, color = @color, bbox: nil, avoid: [])
+      def draw(x, y, img, color = @color, bbox: nil)
         raise Exception::CanvasError, "No provided color nor default color found." if !color
         bbox = [0, 0, img.width, img.height] if !bbox
+        color = color.chr if color.is_a?(Integer)
         @pixels.each{ |dx, dy|
-          if Geometry.bound_check([[x + dx, y + dy]], bbox, true) && !avoid.include?(img[x + dx, y + dy])
+          if Geometry.bound_check([[x + dx, y + dy]], bbox, true)
             img[x + dx, y + dy] = color
           end
         }
