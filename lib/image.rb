@@ -355,23 +355,8 @@ module Gifenc
       lx, ly = dim.x.round,    dim.y.round
       bg = src.trans_color
 
-      # Copy pixel data. We use a different, slightly faster, algorithm if we
-      # don't have a bg color check to make, by directly copying full rows.
-      if trans && bg
-        c = nil
-        ly.times.each{ |y|
-          lx.times.each{ |x|
-            c = src[ox + x, oy + y]
-            self[dx + x, dy + y] = c unless c == bg
-          }
-        }
-      else
-        ly.times.each{ |y|
-          @pixels[(dy + y) * @width + dx, lx] = src.pixels[(oy + y) * src.width + ox, lx]
-        }
-      end
-
-      self
+      # Copy pixel data (refer to main.c)
+      copy_raw(src, dx, dy, ox, oy, lx, ly, trans, bg)
     end
 
     # Change the image's width and height. If the provided values are smaller,

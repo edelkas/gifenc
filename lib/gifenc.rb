@@ -56,8 +56,6 @@ module Gifenc
   DEFAULT_EXHIBIT_TIME = 100
 end
 
-require_relative 'cgifenc'
-
 require_relative 'errors.rb'
 require_relative 'util.rb'
 require_relative 'geometry.rb'
@@ -65,3 +63,5 @@ require_relative 'color_table.rb'
 require_relative 'extensions.rb'
 require_relative 'image.rb'
 require_relative 'gif.rb'
+
+require_relative 'cgifenc'
