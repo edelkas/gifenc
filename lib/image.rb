@@ -253,7 +253,7 @@ module Gifenc
       if col < 0 || col >= @width
         raise Exception::CanvasError, "Column out of bounds."
       end
-      @height.times.map{ |r| @pixels[col, r] }
+      @height.times.map{ |r| self[col, r] }
     end
 
     # Change the pixel data (color indices) of the image. The size of the array
@@ -285,7 +285,7 @@ module Gifenc
     # Paint the whole canvas with the base image color.
     # @return (see #initialize)
     def clear
-      @pixels.map!{ @color }
+      @pixels = [@color] * (@width * @height)
       self
     end
 
