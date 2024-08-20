@@ -3,3 +3,4 @@
 .byebug*
 *.gem
 *.lock
+*.so
