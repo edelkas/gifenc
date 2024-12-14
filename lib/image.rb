@@ -342,7 +342,7 @@ module Gifenc
       # Normalize destination bbox
       dest_bbox = [dest.x, dest.y, dim.x, dim.y]
       overlap = Geometry.rect_overlap(dest_bbox, bbox)
-      return if !dest_bbox
+      return if !overlap
       dest      = Geometry::Point.parse(overlap[0, 2])
       dim       = Geometry::Point.parse(overlap[2, 2])
 
